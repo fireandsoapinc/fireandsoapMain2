@@ -119,6 +119,15 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -177,5 +186,21 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+}
+
+/* Hairline divider utilities */
+@layer components {
+  .hairline-divider {
+    border-top: 1px solid rgba(240, 235, 226, 0.04);
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .hairline-divider-y {
+    border-top: 1px solid rgba(240, 235, 226, 0.04);
+    border-bottom: 1px solid rgba(240, 235, 226, 0.04);
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
   }
 }

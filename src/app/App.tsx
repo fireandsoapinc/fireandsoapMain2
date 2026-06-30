@@ -164,6 +164,7 @@ export default function App() {
     | "shipping"
     | "privacy"
     | "thank-you"
+    | "ritual"
     | "product"
   >("home");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -227,6 +228,7 @@ export default function App() {
       | "shipping"
       | "privacy"
       | "thank-you"
+      | "ritual"
       | "product",
     productId: string | null = null,
   ) => {
@@ -304,7 +306,8 @@ export default function App() {
         hash === "ingredients" ||
         hash === "shipping" ||
         hash === "privacy" ||
-        hash === "thank-you"
+        hash === "thank-you" ||
+        hash === "ritual"
       ) {
         setCurrentPage(
           hash as
@@ -316,7 +319,8 @@ export default function App() {
             | "ingredients"
             | "shipping"
             | "privacy"
-            | "thank-you",
+            | "thank-you"
+            | "ritual",
         );
         if (hash === "thank-you") {
           clearStoredCart();
@@ -754,12 +758,13 @@ export default function App() {
                 your daily rituals. <br></br>
               </p>
 
-              <a
-                href="#ritual"
+              <button
+                type="button"
+                onClick={() => goToPage("ritual")}
                 className="text-sm tracking-[0.2em] uppercase text-foreground/80 hover:text-foreground transition-colors duration-300 border-b border-foreground/30 pb-px"
               >
                 Our Virtual Rituals
-              </a>
+              </button>
             </div>
 
             
@@ -1806,6 +1811,35 @@ export default function App() {
             </div>
           </div>
         </section>
+      ) : currentPage === "ritual" ? (
+        <section className="px-14 py-28 md:py-36">
+          <div className="text-center mb-12">
+            <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Experience</p>
+            <h1
+              style={{ fontFamily: displayFont }}
+              className="text-3xl md:text-4xl font-light text-foreground mb-2"
+            >
+              Virtual Rituals
+            </h1>
+            <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Fire &amp; Soap</p>
+          </div>
+
+          <div className="space-y-8 text-sm leading-relaxed text-muted-foreground text-center max-w-lg mx-auto">
+            <p>
+              Guided ceremonies, moon-phase practices, and intentional moments — crafted for you to experience from
+              home. We&apos;re putting the finishing touches on this space.
+            </p>
+            <p className="text-foreground tracking-[0.2em] uppercase text-xs">Coming Soon</p>
+            <button
+              type="button"
+              onClick={() => goToPage("home")}
+              className="inline-flex items-center gap-2 border border-foreground/20 bg-black px-6 py-3 text-[10px] tracking-[0.2em] uppercase text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              Back to Home
+              <ArrowRight size={12} />
+            </button>
+          </div>
+        </section>
       ) : currentPage === "thank-you" ? (
         <section className="px-14 py-28 md:py-36">
           <div className="text-center mb-12">
@@ -1819,7 +1853,7 @@ export default function App() {
             <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Fire &amp; Soap</p>
           </div>
 
-          <div className="space-y-8 text-sm leading-relaxed text-muted-foreground">
+          <div className="space-y-8 text-sm leading-relaxed text-muted-foreground text-center">
             <p>
               Your order is confirmed. We&apos;re honored you chose Fire and Soap for your ritual — you&apos;ll receive
               an email from Shopify with your receipt and order details shortly.
@@ -2060,20 +2094,21 @@ export default function App() {
           </div>
           <div className="border-t border-border pt-8">
             <div className="flex flex-col items-center gap-4 text-center">
-              <div className="flex flex-wrap items-center justify-center gap-6">
+              <div className="flex items-center justify-center gap-5">
                 {[
-                  { label: "Instagram", href: getInstagramProfileUrl(instagramUsername) },
-                  { label: "Pinterest", href: "https://www.pinterest.com/fireandsoap/" },
-                  { label: "TikTok", href: "#" },
+                  { label: "Instagram", href: getInstagramProfileUrl(instagramUsername), icon: <InstagramIcon /> },
+                  { label: "Pinterest", href: "https://www.pinterest.com/fireandsoap/", icon: <PinterestIcon /> },
+                  { label: "TikTok", href: "https://www.tiktok.com/@fireandsoap", icon: <TikTokIcon /> },
                 ].map((s) => (
                   <a
                     key={s.label}
                     href={s.href}
+                    aria-label={s.label}
                     target={s.href.startsWith("http") ? "_blank" : undefined}
                     rel={s.href.startsWith("http") ? "noreferrer" : undefined}
-                    className="text-[11px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {s.label}
+                    {s.icon}
                   </a>
                 ))}
               </div>
@@ -2092,6 +2127,30 @@ export default function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" />
+    </svg>
+  );
+}
+
+function PinterestIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.402.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.357-.629-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z" />
+    </svg>
+  );
+}
+
+function TikTokIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+    </svg>
   );
 }
 

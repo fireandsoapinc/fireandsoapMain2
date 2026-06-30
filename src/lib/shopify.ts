@@ -1,14 +1,36 @@
 export type ShopifyProduct = {
   id: string;
+  variantId: string;
   name: string;
   category: string;
   price: string;
   size: string;
   description: string;
+  descriptionHtml: string;
   image: string;
   images: string[];
   tag: string;
+  collections: string[];
 };
+
+export const SHOP_CATEGORIES = [
+  { label: "All", slug: null },
+  { label: "Summer Collection", slug: "summer-collection" },
+  { label: "Candles", slug: "candles" },
+  { label: "Soaps", slug: "soaps" },
+] as const;
+
+export type ShopCategoryLabel = (typeof SHOP_CATEGORIES)[number]["label"];
+
+export function shopCategoryFromSlug(slug: string): ShopCategoryLabel {
+  const match = SHOP_CATEGORIES.find((category) => category.slug === slug);
+  return match?.label ?? "All";
+}
+
+export function shopCategoryToSlug(label: ShopCategoryLabel): string | null {
+  const match = SHOP_CATEGORIES.find((category) => category.label === label);
+  return match?.slug ?? null;
+}
 
 const shopDomain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN;
 const storefrontToken = import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN;
@@ -71,8 +93,16 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
             id
             title
             description
+            descriptionHtml
             productType
             tags
+            collections(first: 10) {
+              edges {
+                node {
+                  title
+                }
+              }
+            }
             images(first: 2) {
               edges {
                 node {
@@ -84,6 +114,7 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
             variants(first: 1) {
               edges {
                 node {
+                  id
                   title
                   priceV2 {
                     amount
@@ -112,16 +143,21 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
     const size = variantTitle && variantTitle !== "Default Title" ? variantTitle : "Standard";
 
     const images = node.images.edges.map((imgEdge: any) => imgEdge.node.url).filter(Boolean);
+    const collections = node.collections?.edges?.map((edge: any) => edge.node.title as string).filter(Boolean) ?? [];
+
     return {
       id: node.id,
+      variantId: variant?.id ?? "",
       name: node.title,
       category: normalizeCategory(node.productType, node.tags),
       price,
       size,
       description: node.description ?? "",
+      descriptionHtml: node.descriptionHtml ?? "",
       image,
       images: images.length > 0 ? images : [image],
       tag: normalizeTag(node.tags),
+      collections,
     };
   });
 }
@@ -181,4 +217,51 @@ export async function subscribeEmailToMarketing(email: string): Promise<void> {
   }
 
   throw new Error("Unable to subscribe email to the marketing list.");
+}
+
+export type CheckoutLine = {
+  variantId: string;
+  quantity: number;
+};
+
+export async function createShopifyCheckoutUrl(lines: CheckoutLine[]): Promise<string> {
+  const validLines = lines.filter((line) => line.variantId && line.quantity > 0);
+  if (validLines.length === 0) {
+    throw new Error("Your cart is empty.");
+  }
+
+  const mutation = `
+    mutation CartCreate($input: CartInput!) {
+      cartCreate(input: $input) {
+        cart {
+          checkoutUrl
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const json = await shopifyGraphQL(mutation, {
+    input: {
+      lines: validLines.map((line) => ({
+        merchandiseId: line.variantId,
+        quantity: line.quantity,
+      })),
+    },
+  });
+
+  const userErrors = json.data?.cartCreate?.userErrors ?? [];
+  if (userErrors.length > 0) {
+    throw new Error(userErrors.map((error: { message: string }) => error.message).join(" | "));
+  }
+
+  const checkoutUrl = json.data?.cartCreate?.cart?.checkoutUrl;
+  if (!checkoutUrl) {
+    throw new Error("Unable to start Shopify checkout.");
+  }
+
+  return checkoutUrl;
 }

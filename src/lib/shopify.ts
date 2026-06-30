@@ -30,7 +30,7 @@ function normalizeCategory(productType: string | null, tags: string[]): string {
   return tags[0] ?? "Product";
 }
 
-export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]> {
+async function shopifyGraphQL(query: string, variables: Record<string, unknown>): Promise<any> {
   if (!shopDomain) {
     throw new Error("Missing VITE_SHOPIFY_STORE_DOMAIN environment variable.");
   }
@@ -38,6 +38,31 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
     throw new Error("Missing VITE_SHOPIFY_STOREFRONT_TOKEN environment variable.");
   }
 
+  const response = await fetch(GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Storefront-Access-Token": storefrontToken,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Shopify request failed: ${response.status} ${response.statusText} ${errorText}`);
+  }
+
+  const json = await response.json();
+
+  if (json.errors?.length) {
+    const errors = json.errors.map((error: any) => error.message).join(" | ");
+    throw new Error(`Shopify GraphQL errors: ${errors}`);
+  }
+
+  return json;
+}
+
+export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]> {
   const query = `
     query GetProducts($first: Int!) {
       products(first: $first) {
@@ -73,26 +98,7 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
     }
   `;
 
-  const response = await fetch(GRAPHQL_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Shopify-Storefront-Access-Token": storefrontToken,
-    },
-    body: JSON.stringify({ query, variables: { first } }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Shopify request failed: ${response.status} ${response.statusText} ${errorText}`);
-  }
-
-  const json = await response.json();
-
-  if (json.errors?.length) {
-    const errors = json.errors.map((error: any) => error.message).join(" | ");
-    throw new Error(`Shopify GraphQL errors: ${errors}`);
-  }
+  const json = await shopifyGraphQL(query, { first });
 
   return json.data.products.edges.map((edge: any) => {
     const node = edge.node;
@@ -118,4 +124,61 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
       tag: normalizeTag(node.tags),
     };
   });
+}
+
+export async function subscribeEmailToMarketing(email: string): Promise<void> {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) {
+    throw new Error("Email is required.");
+  }
+
+  const password = `Shopify-${Math.random().toString(36).slice(2, 12)}!A`;
+
+  const createMutation = `
+    mutation CustomerCreate($input: CustomerCreateInput!) {
+      customerCreate(input: $input) {
+        customer {
+          id
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const createVariables = {
+    input: {
+      email: normalizedEmail,
+      password,
+      acceptsMarketing: true,
+    },
+  };
+
+  const createResult = await shopifyGraphQL(createMutation, createVariables);
+  const customerCreate = createResult.data?.customerCreate;
+  const createErrors = customerCreate?.userErrors || [];
+
+  const emailAlreadyExists = createErrors.some((error: any) =>
+    typeof error.message === "string" &&
+    ["already exists", "already taken", "duplicate", "taken"].some((phrase) =>
+      error.message.toLowerCase().includes(phrase),
+    ),
+  );
+
+  if (customerCreate?.customer?.id && createErrors.length === 0) {
+    return;
+  }
+
+  if (emailAlreadyExists) {
+    return;
+  }
+
+  if (createErrors.length > 0) {
+    const errorMessage = createErrors.map((error: any) => error.message).join(" | ");
+    throw new Error(`Failed to create customer: ${errorMessage}`);
+  }
+
+  throw new Error("Unable to subscribe email to the marketing list.");
 }

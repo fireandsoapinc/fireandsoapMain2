@@ -70,9 +70,9 @@ const soapIngredients = [
   },
 ];
 const displayFont = "'Cormorant Garamond', serif";
-const pageGutterClass = "px-14"; // 3.5rem
+const pageGutterClass = "px-5 md:px-14"; // tighter on mobile, 3.5rem on desktop
 const carouselScrollInsetClass =
-  "pl-14 pr-14 scroll-pl-14 scroll-pr-14 md:pl-[calc(3.5rem+2.75rem)] md:pr-[calc(3.5rem+2.75rem)] md:scroll-pl-[calc(3.5rem+2.75rem)] md:scroll-pr-[calc(3.5rem+2.75rem)]";
+  "pl-5 pr-5 scroll-pl-5 scroll-pr-5 md:pl-[calc(3.5rem+2.75rem)] md:pr-[calc(3.5rem+2.75rem)] md:scroll-pl-[calc(3.5rem+2.75rem)] md:scroll-pr-[calc(3.5rem+2.75rem)]";
 const homepageCarouselVisibleSlots = 4;
 const homepageCarouselGapPx = 16; // matches gap-4
 const homepageCarouselMobileSlotClass = "w-[min(82vw,19rem)] sm:w-[min(72vw,21rem)]";
@@ -587,11 +587,11 @@ export default function App() {
   return (
     <div
       className="min-h-screen bg-background text-foreground"
-      style={{ fontFamily: "'Cinzel', sans-serif" }}
+      style={{ fontFamily: "'Cinzel', sans-serif", backgroundColor: "#080808" }}
     >
       {/* ── NAV ── */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
-        <div className="px-14 flex items-center justify-between h-20">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background">
+        <div className={`${pageGutterClass} relative flex items-center justify-between h-20`}>
           {/* Left nav */}
           <nav className="hidden md:flex items-center gap-6">
             {['Home', 'Shop', 'About'].map((item) => {
@@ -629,8 +629,8 @@ export default function App() {
             </span>
           </a>
 
-          {/* Right nav */}
-          <div className="flex items-center gap-4 justify-end">
+          {/* Right nav — ml-auto keeps icons right when left nav is hidden on mobile */}
+          <div className="ml-auto flex items-center gap-4 justify-end">
             <button
               type="button"
               onClick={() => goToPage("gallery")}
@@ -640,9 +640,7 @@ export default function App() {
             >
               Gallery
             </button>
-            <button className="text-foreground/70 hover:text-foreground transition-colors">
-              <Search size={16} strokeWidth={1.5} />
-            </button>
+      
             <button
               className="relative text-foreground/70 hover:text-foreground transition-colors"
               aria-label="Cart"
@@ -661,6 +659,7 @@ export default function App() {
             <button
               className="md:hidden text-foreground/70 hover:text-foreground transition-colors"
               onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
             >
               <Menu size={18} strokeWidth={1.5} />
             </button>
@@ -670,14 +669,15 @@ export default function App() {
 
       {/* ── MOBILE MENU ── */}
       {menuOpen && (
-        <div className="fixed inset-0 z-[100] bg-background flex flex-col p-8">
+        <div className="fixed inset-0 z-[100] bg-background flex flex-col px-5 py-8">
           <button
-            className="self-end text-muted-foreground hover:text-foreground mb-12"
+            className="self-end text-muted-foreground hover:text-foreground mb-10"
             onClick={() => setMenuOpen(false)}
+            aria-label="Close menu"
           >
             <X size={20} strokeWidth={1.5} />
           </button>
-          <nav className="flex flex-col gap-8">
+          <nav className="flex flex-col gap-5">
             {['Home', 'Shop', 'Gallery', 'About'].map((item) => (
                 <button
                   key={item}
@@ -688,7 +688,7 @@ export default function App() {
                     setMenuOpen(false);
                   }}
                   style={{ fontFamily: displayFont }}
-                  className="text-4xl font-light text-foreground hover:text-accent transition-colors text-left"
+                  className="text-2xl font-light tracking-wide text-foreground hover:text-accent transition-colors text-left"
                 >
                   {item}
                 </button>
@@ -708,7 +708,7 @@ export default function App() {
   
   {/* CHANGED: 'justify-center' to 'justify-end' and added 'pb-8 md:pb-12' */}
   <div
-    className={`relative z-10 h-full flex flex-col items-center justify-end pb-8 md:pb-12 px-14 text-center transition-all duration-1000 delay-300 ${
+    className={`relative z-10 h-full flex flex-col items-center justify-end pb-8 md:pb-12 px-5 md:px-14 text-center transition-all duration-1000 delay-300 ${
       heroLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
     }`}
   >
@@ -742,7 +742,7 @@ export default function App() {
 {/* ── SHOP / PAGES ── */}
       {currentPage === "home" ? (
         <section id="shop" className="pt-12 pb-20 md:pt-16 md:pb-28">
-          <ScrollReveal className="px-14 text-center mb-14 space-y-5 md:space-y-6" delay={80}>
+          <ScrollReveal className="px-5 md:px-14 text-center mb-14 space-y-5 md:space-y-6" delay={80}>
             <div className="text-center mb-14 space-y-5 md:space-y-6">
               <h2
                 style={{ fontFamily: displayFont }}
@@ -781,19 +781,19 @@ export default function App() {
           </ScrollReveal>
 
           {productError && (
-            <div className="px-14 mb-8 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive-foreground">
+            <div className="px-5 md:px-14 mb-8 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive-foreground">
               Unable to load products from Shopify: {productError}
             </div>
           )}
 
           {loadingProducts && (
-            <div className="px-14 mb-8 text-sm text-muted-foreground">
+            <div className="px-5 md:px-14 mb-8 text-sm text-muted-foreground">
               Loading products from Shopify...
             </div>
           )}
 
           {!loadingProducts && !productError && homepageProducts.length === 0 && (
-            <div className="px-14 mb-8 text-sm text-muted-foreground">
+            <div className="px-5 md:px-14 mb-8 text-sm text-muted-foreground">
               No featured products were found in the Shopify storefront.
             </div>
           )}
@@ -818,7 +818,7 @@ export default function App() {
 
             <div
               ref={homepageScrollRef}
-              className={`overflow-x-auto no-scrollbar pb-8 md:pb-10 -mx-14 px-14 md:mx-0 md:px-0 ${carouselScrollInsetClass}`}
+              className={`overflow-x-auto no-scrollbar pb-8 md:pb-10 -mx-5 px-5 md:mx-0 md:px-0 ${carouselScrollInsetClass}`}
             >
               <div className="flex gap-4 items-center justify-start snap-x snap-mandatory">
                 {homepageProducts.map((p, index) => (
@@ -845,7 +845,7 @@ export default function App() {
         </section>
       ) : currentPage === "shop" ? (
         <section className="pt-24 md:pt-28 pb-28 md:pb-36">
-          <div className="px-14 text-center mb-10 md:mb-14">
+          <div className="px-5 md:px-14 text-center mb-10 md:mb-14">
             <div>
               <h1
                 style={{ fontFamily: displayFont }}
@@ -892,7 +892,7 @@ export default function App() {
           </div>
 
           {!loadingProducts && !productError && filtered.length > 0 && (
-            <div className="px-14">
+            <div className="px-5 md:px-14">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 md:gap-x-4 gap-y-12 md:gap-y-16 justify-items-center">
                 {filtered.map((p, index) => (
                   <ScrollReveal key={p.id} delay={index * 50}>
@@ -906,7 +906,7 @@ export default function App() {
       ) : currentPage === "product" ? (
         <section className="pt-24 md:pt-28 pb-28 md:pb-36">
           {selectedProduct ? (
-            <div className="px-14">
+            <div className="px-5 md:px-14">
               <button
                 type="button"
                 onClick={() => goToPage("shop")}
@@ -1068,7 +1068,7 @@ export default function App() {
           )}
         </section>
       ) : currentPage === "cart" ? (
-        <section className="px-14 py-28 md:py-36">
+        <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="mb-10">
             <p className="text-xs tracking-[0.3em] uppercase text-accent mb-3">Your Cart</p>
             <h1
@@ -1165,7 +1165,7 @@ export default function App() {
           )}
         </section>
       ) : currentPage === "gallery" ? (
-        <section className="px-14 py-28 md:py-36">
+        <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
             <p className="text-xs tracking-[0.3em] uppercase text-accent mb-3">From Instagram</p>
             <h1
@@ -1240,7 +1240,7 @@ export default function App() {
           </div>
         </section>
       ) : currentPage === "returns" ? (
-        <section className="px-14 py-28 md:py-36">
+        <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
             <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Policy</p>
             <h1
@@ -1303,7 +1303,7 @@ export default function App() {
           </div>
         </section>
       ) : currentPage === "ingredients" ? (
-        <section className="px-14 py-28 md:py-36">
+        <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
             <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Transparency</p>
             <h1
@@ -1341,7 +1341,7 @@ export default function App() {
           </div>
         </section>
       ) : currentPage === "about" ? (
-        <section className="px-14 py-28 md:py-36">
+        <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
             <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">About</p>
             <h1
@@ -1372,7 +1372,7 @@ export default function App() {
           </div>
         </section>
       ) : currentPage === "shipping" ? (
-        <section className="px-14 py-28 md:py-36">
+        <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
             <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Help</p>
             <h1
@@ -1419,7 +1419,7 @@ export default function App() {
           </div>
         </section>
       ) : currentPage === "privacy" ? (
-        <section className="px-14 py-28 md:py-36">
+        <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
             <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Policy</p>
             <h1
@@ -1812,7 +1812,7 @@ export default function App() {
           </div>
         </section>
       ) : currentPage === "ritual" ? (
-        <section className="px-14 py-28 md:py-36">
+        <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
             <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Experience</p>
             <h1
@@ -1841,7 +1841,7 @@ export default function App() {
           </div>
         </section>
       ) : currentPage === "thank-you" ? (
-        <section className="px-14 py-28 md:py-36">
+        <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
             <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Order Confirmed</p>
             <h1
@@ -1869,7 +1869,7 @@ export default function App() {
           </div>
         </section>
       ) : (
-        <section className="px-14 py-28 md:py-36 text-center">
+        <section className="px-5 md:px-14 py-28 md:py-36 text-center">
           <p className="text-sm text-muted-foreground">Page not found.</p>
         </section>
       )}
@@ -1878,7 +1878,7 @@ export default function App() {
       {currentPage === "home" && (
         <>
           {/* ── INTRO ── */}
-          <section className="px-14 py-20 md:py-28">
+          <section className="px-5 md:px-14 py-20 md:py-28">
         <div className="grid md:grid-cols-2 gap-10 md:gap-12 items-center">
           <div className="space-y-8">
             <ScrollReveal delay={80}>
@@ -1927,7 +1927,7 @@ export default function App() {
     
 
       {/* ── TESTIMONIALS ── */}
-      <section className="px-14 pt-20 md:pt-24 pb-40 md:pb-52">
+      <section className="px-5 md:px-14 pt-20 md:pt-24 pb-40 md:pb-52">
       <ScrollReveal className={`${pageGutterClass} text-left mb-10 md:mb-14 mt-28 md:mt-32`} delay={120}>
       <p className="text-xs text-center tracking-[0.3em] uppercase text-accent mb-8">
                   From our customers
@@ -1972,7 +1972,7 @@ export default function App() {
 
       {/* ── NEWSLETTER ── */}
       <section className="bg-card border-t border-border">
-        <div className="px-14 py-24 md:py-32">
+        <div className="px-5 md:px-14 py-24 md:py-32">
           <ScrollReveal className="max-w-xl mx-auto text-center" delay={100}>
             <div className="max-w-xl mx-auto text-center">
               <p className="text-xs tracking-[0.3em] uppercase text-accent mb-5">
@@ -2019,7 +2019,7 @@ export default function App() {
       )}
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-border px-14 py-16">
+      <footer className="border-t border-border px-5 md:px-14 py-16">
         <div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-16 items-start">
             <ScrollReveal delay={80}>

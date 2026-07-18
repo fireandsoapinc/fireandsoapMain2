@@ -182,7 +182,7 @@ function GalleryMediaTile({
       onFocus={() => {
         if (isVideo) warmGalleryVideo(item.videoUrl);
       }}
-      className="group relative block w-full overflow-hidden border border-border bg-card text-left cursor-pointer"
+      className="group relative isolate block w-full overflow-hidden border border-border bg-card text-left cursor-pointer"
       aria-label={
         isVideo
           ? `Preview video: ${item.alt || "gallery video"}`
@@ -192,17 +192,16 @@ function GalleryMediaTile({
       <img
         src={item.imageUrl}
         alt={item.alt || "Fire and Soap gallery image"}
-        className={`block w-full h-auto transition-transform duration-700 group-hover:scale-[1.02] ${
-          hovering && isVideo ? "opacity-0" : "opacity-100"
-        }`}
+        className="block w-full h-auto"
         loading="lazy"
+        draggable={false}
       />
       {isVideo && (
         <video
           ref={videoRef}
           src={item.videoUrl || undefined}
           poster={item.posterUrl || item.imageUrl}
-          className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
+          className={`pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
             hovering ? "opacity-100" : "opacity-0"
           }`}
           muted
@@ -210,11 +209,16 @@ function GalleryMediaTile({
           playsInline
           preload="metadata"
           aria-hidden
+          tabIndex={-1}
         />
       )}
-      <div className="absolute inset-0 bg-background/0 group-hover:bg-background/15 transition-colors duration-300 pointer-events-none" />
-      {isVideo && !hovering && (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <div className="pointer-events-none absolute inset-0 bg-background/0 transition-colors duration-300 group-hover:bg-background/15" />
+      {isVideo && (
+        <span
+          className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${
+            hovering ? "opacity-0" : "opacity-100"
+          }`}
+        >
           <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/40 bg-black/45 text-white backdrop-blur-sm">
             <Play size={20} strokeWidth={1.5} fill="currentColor" className="ml-0.5" />
           </span>
@@ -1325,11 +1329,11 @@ export default function App() {
           )}
 
           {!loadingGallery && galleryImages.length > 0 && (
-            <div className="columns-2 md:columns-3 gap-4 md:gap-6">
-              {galleryImages.map((item, index) => (
-                <ScrollReveal key={item.id} delay={index * 60} className="mb-4 md:mb-6 break-inside-avoid">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 items-start">
+              {galleryImages.map((item) => (
+                <div key={item.id} className="w-full self-start">
                   <GalleryMediaTile item={item} onOpen={setSelectedGalleryItem} />
-                </ScrollReveal>
+                </div>
               ))}
             </div>
           )}

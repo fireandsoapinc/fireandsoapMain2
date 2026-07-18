@@ -83,6 +83,9 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
     ],
+    server: {
+      allowedHosts: ['localhost', 'depose-preteen-aground.ngrok-free.dev'],
+    },
     resolve: {
       alias: {
         // Alias @ to the src directory

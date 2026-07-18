@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, type FormEvent, type ReactNode, type RefObject } from "react";
-import { ShoppingBag, Search, Menu, X, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingBag, Search, Menu, X, ArrowRight, ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { fetchShopifyProducts, subscribeEmailToMarketing, createShopifyCheckoutUrl, ShopifyProduct, SHOP_CATEGORIES, shopCategoryFromSlug, shopCategoryToSlug, type ShopCategoryLabel } from "@/lib/shopify";
-import { fetchInstagramPosts, getInstagramProfileUrl, getInstagramImageUrl, type InstagramPost } from "@/lib/instagram";
+import { getInstagramProfileUrl } from "@/lib/instagram";
+import { fetchGalleryImages, warmGalleryVideo, type GalleryImage, type GalleryTab } from "@/lib/gallery";
 
 type Product = ShopifyProduct;
 type CartItem = {
@@ -141,6 +142,88 @@ function ScrollReveal({ children, className = "", delay = 0 }: { children: React
   );
 }
 
+function GalleryMediaTile({
+  item,
+  onOpen,
+}: {
+  item: GalleryImage;
+  onOpen: (item: GalleryImage) => void;
+}) {
+  const [hovering, setHovering] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isVideo = item.mediaType === "video" && Boolean(item.videoUrl);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isVideo) return;
+
+    if (hovering) {
+      warmGalleryVideo(item.videoUrl);
+      video.currentTime = 0;
+      void video.play().catch(() => {});
+      return;
+    }
+
+    video.pause();
+    video.currentTime = 0;
+  }, [hovering, isVideo, item.videoUrl]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (isVideo) warmGalleryVideo(item.videoUrl);
+        onOpen(item);
+      }}
+      onMouseEnter={() => {
+        if (isVideo) setHovering(true);
+      }}
+      onMouseLeave={() => setHovering(false)}
+      onFocus={() => {
+        if (isVideo) warmGalleryVideo(item.videoUrl);
+      }}
+      className="group relative block w-full overflow-hidden border border-border bg-card text-left cursor-pointer"
+      aria-label={
+        isVideo
+          ? `Preview video: ${item.alt || "gallery video"}`
+          : `View image: ${item.alt || "gallery image"}`
+      }
+    >
+      <img
+        src={item.imageUrl}
+        alt={item.alt || "Fire and Soap gallery image"}
+        className={`block w-full h-auto transition-transform duration-700 group-hover:scale-[1.02] ${
+          hovering && isVideo ? "opacity-0" : "opacity-100"
+        }`}
+        loading="lazy"
+      />
+      {isVideo && (
+        <video
+          ref={videoRef}
+          src={item.videoUrl || undefined}
+          poster={item.posterUrl || item.imageUrl}
+          className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
+            hovering ? "opacity-100" : "opacity-0"
+          }`}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-hidden
+        />
+      )}
+      <div className="absolute inset-0 bg-background/0 group-hover:bg-background/15 transition-colors duration-300 pointer-events-none" />
+      {isVideo && !hovering && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/40 bg-black/45 text-white backdrop-blur-sm">
+            <Play size={20} strokeWidth={1.5} fill="currentColor" className="ml-0.5" />
+          </span>
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<ShopCategoryLabel>("All");
@@ -168,9 +251,11 @@ export default function App() {
     | "product"
   >("home");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [instagramPosts, setInstagramPosts] = useState<InstagramPost[]>([]);
-  const [loadingInstagram, setLoadingInstagram] = useState(false);
-  const [instagramError, setInstagramError] = useState<string | null>(null);
+  const [galleryTab, setGalleryTab] = useState<GalleryTab>("our");
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [loadingGallery, setLoadingGallery] = useState(false);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
+  const [selectedGalleryItem, setSelectedGalleryItem] = useState<GalleryImage | null>(null);
   const [checkoutState, setCheckoutState] = useState<"idle" | "loading" | "error">("idle");
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const homepageScrollRef = useRef<HTMLDivElement>(null);
@@ -342,26 +427,45 @@ export default function App() {
     if (currentPage !== "gallery") return;
 
     let cancelled = false;
-    setLoadingInstagram(true);
-    setInstagramError(null);
+    setLoadingGallery(true);
+    setGalleryError(null);
+    setGalleryImages([]);
+    setSelectedGalleryItem(null);
 
-    fetchInstagramPosts(instagramUsername)
-      .then((posts) => {
-        if (!cancelled) setInstagramPosts(posts);
+    fetchGalleryImages(galleryTab)
+      .then((images) => {
+        if (!cancelled) setGalleryImages(images);
       })
       .catch((error) => {
         if (!cancelled) {
-          setInstagramError(error instanceof Error ? error.message : String(error));
+          setGalleryError(error instanceof Error ? error.message : String(error));
         }
       })
       .finally(() => {
-        if (!cancelled) setLoadingInstagram(false);
+        if (!cancelled) setLoadingGallery(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [currentPage, instagramUsername]);
+  }, [currentPage, galleryTab]);
+
+  useEffect(() => {
+    if (!selectedGalleryItem) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedGalleryItem(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [selectedGalleryItem]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1167,77 +1271,110 @@ export default function App() {
       ) : currentPage === "gallery" ? (
         <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
-            <p className="text-xs tracking-[0.3em] uppercase text-accent mb-3">From Instagram</p>
+            <p className="text-xs tracking-[0.3em] uppercase text-accent mb-3">Visual Journal</p>
             <h1
               style={{ fontFamily: displayFont }}
               className="text-3xl md:text-4xl font-light text-foreground mb-4"
             >
               Gallery
             </h1>
-            <p className="text-sm leading-relaxed text-muted-foreground max-w-2xl mx-auto">
-              A living look at our rituals, products, and behind-the-scenes moments from{" "}
-              <a
-                href={getInstagramProfileUrl(instagramUsername)}
-                target="_blank"
-                rel="noreferrer"
-                className="text-foreground underline underline-offset-4 hover:text-accent transition-colors"
-              >
-                @{instagramUsername}
-              </a>
-              .
+            <p className="text-sm leading-relaxed text-muted-foreground max-w-2xl mx-auto mb-8">
+              {galleryTab === "our"
+                ? "A living look at our rituals, products, and behind-the-scenes moments."
+                : "Photos shared by the people who use Fire and Soap every day."}
             </p>
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+              {(
+                [
+                  { id: "our" as const, label: "Our Gallery" },
+                  { id: "customers" as const, label: "From Our Customers" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setGalleryTab(tab.id)}
+                  className={`text-[10px] tracking-[0.2em] uppercase transition-opacity duration-200 ${
+                    galleryTab === tab.id
+                      ? "text-foreground opacity-100"
+                      : "text-foreground opacity-40 hover:opacity-60"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {loadingInstagram && (
-            <div className="text-center text-sm text-muted-foreground">Loading Instagram gallery...</div>
+          {loadingGallery && (
+            <div className="text-center text-sm text-muted-foreground">Loading gallery...</div>
           )}
 
-          {instagramError && (
+          {galleryError && (
             <div className="mb-8 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive-foreground text-center">
-              Unable to load Instagram posts: {instagramError}
+              Unable to load gallery: {galleryError}
             </div>
           )}
 
-          {!loadingInstagram && !instagramError && instagramPosts.length === 0 && (
+          {!loadingGallery && !galleryError && galleryImages.length === 0 && (
             <div className="text-center text-sm text-muted-foreground">
-              No Instagram posts are available right now.
+              {galleryTab === "our"
+                ? "No gallery images are available right now."
+                : "No customer photos are available right now."}
             </div>
           )}
 
-          {!loadingInstagram && instagramPosts.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-              {instagramPosts.map((post, index) => (
-                <ScrollReveal key={post.id} delay={index * 60}>
-                  <a
-                    href={post.permalink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group relative block overflow-hidden border border-border bg-card aspect-square"
-                  >
-                    <InstagramGalleryImage post={post} />
-                    <div className="absolute inset-0 bg-background/0 group-hover:bg-background/20 transition-colors duration-300" />
-                    {post.isVideo && (
-                      <span className="absolute top-3 right-3 text-[9px] tracking-[0.2em] uppercase bg-background/90 text-foreground px-2 py-1">
-                        Video
-                      </span>
-                    )}
-                  </a>
+          {!loadingGallery && galleryImages.length > 0 && (
+            <div className="columns-2 md:columns-3 gap-4 md:gap-6">
+              {galleryImages.map((item, index) => (
+                <ScrollReveal key={item.id} delay={index * 60} className="mb-4 md:mb-6 break-inside-avoid">
+                  <GalleryMediaTile item={item} onOpen={setSelectedGalleryItem} />
                 </ScrollReveal>
               ))}
             </div>
           )}
 
-          <div className="mt-12 text-center">
-            <a
-              href={getInstagramProfileUrl(instagramUsername)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 border border-foreground/20 bg-black px-6 py-3 text-[10px] tracking-[0.2em] uppercase text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          {selectedGalleryItem && (
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 md:p-10"
+              onClick={() => setSelectedGalleryItem(null)}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Gallery preview"
             >
-              Follow on Instagram
-              <ArrowRight size={12} />
-            </a>
-          </div>
+              <button
+                type="button"
+                onClick={() => setSelectedGalleryItem(null)}
+                className="absolute top-4 right-4 md:top-6 md:right-6 z-10 flex h-10 w-10 items-center justify-center text-white/80 hover:text-white transition-colors"
+                aria-label="Close preview"
+              >
+                <X size={22} strokeWidth={1.5} />
+              </button>
+              <div className="relative max-h-full max-w-5xl flex items-center justify-center">
+                {selectedGalleryItem.mediaType === "video" && selectedGalleryItem.videoUrl ? (
+                  <video
+                    key={selectedGalleryItem.id}
+                    src={selectedGalleryItem.videoUrl}
+                    poster={selectedGalleryItem.posterUrl || selectedGalleryItem.imageUrl}
+                    className="max-h-[85vh] max-w-full w-auto h-auto"
+                    controls
+                    playsInline
+                    autoPlay
+                    preload="auto"
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label={selectedGalleryItem.alt || "Fire and Soap gallery video"}
+                  />
+                ) : (
+                  <img
+                    src={selectedGalleryItem.fullUrl || selectedGalleryItem.imageUrl}
+                    alt={selectedGalleryItem.alt || "Fire and Soap gallery image"}
+                    className="max-h-[85vh] max-w-full w-auto h-auto object-contain"
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </section>
       ) : currentPage === "returns" ? (
         <section className="px-5 md:px-14 py-28 md:py-36">
@@ -2151,25 +2288,6 @@ function TikTokIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
     </svg>
-  );
-}
-
-function InstagramGalleryImage({ post }: { post: InstagramPost }) {
-  const [imageSrc, setImageSrc] = useState(() => getInstagramImageUrl(post.imageUrl));
-
-  return (
-    <img
-      src={imageSrc}
-      alt={post.caption || "Fire and Soap Instagram post"}
-      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-      loading="lazy"
-      referrerPolicy="no-referrer"
-      onError={() => {
-        if (imageSrc !== post.imageUrl) {
-          setImageSrc(post.imageUrl);
-        }
-      }}
-    />
   );
 }
 

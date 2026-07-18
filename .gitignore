@@ -1,3 +1,5 @@
 node_modules
 .env.local
 dist/
+cloudinary-onboarding.mjs
+public/instagram-feed.json

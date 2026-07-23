@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef, type FormEvent, type ReactNode, type RefObject } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ShoppingBag, Search, Menu, X, ArrowRight, ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { fetchShopifyProducts, subscribeEmailToMarketing, createShopifyCheckoutUrl, ShopifyProduct, SHOP_CATEGORIES, shopCategoryFromSlug, shopCategoryToSlug, type ShopCategoryLabel } from "@/lib/shopify";
 import { getInstagramProfileUrl } from "@/lib/instagram";
 import { fetchGalleryImages, warmGalleryVideo, type GalleryImage, type GalleryTab } from "@/lib/gallery";
+
+const MiniApp = lazy(() => import("@/miniapp/MiniApp"));
 
 type Product = ShopifyProduct;
 type CartItem = {
@@ -81,7 +83,33 @@ const CART_STORAGE_KEY = "fire-and-soap-cart";
 const CHECKOUT_PENDING_KEY = "fire-and-soap-checkout-pending";
 
 function getThankYouUrl() {
-  return `${window.location.origin}${window.location.pathname}#thank-you`;
+  return `${window.location.origin}/#thank-you`;
+}
+
+function isMyAuraPath(pathname = window.location.pathname) {
+  return pathname.replace(/\/+$/, "").toLowerCase() === "/myaura";
+}
+
+/** Canonical ritual URL for social / shared links. */
+function goToMyAura(replace = false) {
+  const url = "/myaura";
+  if (replace) window.history.replaceState(null, "", url);
+  else window.history.pushState(null, "", url);
+}
+
+/**
+ * Navigate to a hash route on the site root.
+ * If we're currently on /myaura, leave that path so the URL stays clean.
+ */
+function goToRootHash(hash: string, replace = false) {
+  const normalized = hash.startsWith("#") ? hash : `#${hash}`;
+  const url = `/${normalized}`;
+  if (isMyAuraPath() || replace) {
+    if (replace) window.history.replaceState(null, "", url);
+    else window.history.pushState(null, "", url);
+    return;
+  }
+  window.location.hash = normalized;
 }
 
 function isShopifyCheckoutSuccess() {
@@ -253,7 +281,13 @@ export default function App() {
     | "thank-you"
     | "ritual"
     | "product"
-  >("home");
+  >(() => {
+    if (typeof window === "undefined") return "home";
+    if (isMyAuraPath()) return "ritual";
+    const hash = window.location.hash.replace("#", "").split("?")[0].toLowerCase();
+    if (hash === "ritual") return "ritual";
+    return "home";
+  });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [galleryTab, setGalleryTab] = useState<GalleryTab>("our");
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
@@ -322,14 +356,22 @@ export default function App() {
     productId: string | null = null,
   ) => {
     if (page === "product" && productId) {
-      window.location.hash = `#product-${encodeURIComponent(productId)}`;
+      // Leave /myaura so browser Back returns to the quiz.
+      goToRootHash(`#product-${encodeURIComponent(productId)}`);
       setSelectedProductId(productId);
       setCurrentPage("product");
       return;
     }
 
+    if (page === "ritual") {
+      goToMyAura();
+      setSelectedProductId(null);
+      setCurrentPage("ritual");
+      return;
+    }
+
     const pageHash = page === "home" ? "#home" : `#${page}`;
-    window.location.hash = pageHash;
+    goToRootHash(pageHash);
     setSelectedProductId(null);
     setCurrentPage(page);
   };
@@ -341,11 +383,11 @@ export default function App() {
     setMenuOpen(false);
 
     const slug = shopCategoryToSlug(category);
-    window.location.hash = slug ? `#shop-${slug}` : "#shop";
+    goToRootHash(slug ? `#shop-${slug}` : "#shop");
   }
 
   useEffect(() => {
-    const parseHash = () => {
+    const syncFromLocation = () => {
       if (isShopifyCheckoutSuccess()) {
         clearStoredCart();
         setCartItems([]);
@@ -354,13 +396,16 @@ export default function App() {
         if (hash !== "thank-you" && hash !== "thankyou") {
           setSelectedProductId(null);
           setCurrentPage("thank-you");
-          window.history.replaceState(
-            null,
-            "",
-            `${window.location.pathname}${window.location.search}#thank-you`,
-          );
+          window.history.replaceState(null, "", "/#thank-you");
           return;
         }
+      }
+
+      // Social / branded entry: fireandsoap.com/myaura
+      if (isMyAuraPath()) {
+        setSelectedProductId(null);
+        setCurrentPage("ritual");
+        return;
       }
 
       const hash = window.location.hash.replace("#", "");
@@ -386,6 +431,14 @@ export default function App() {
         return;
       }
 
+      // Legacy deep link — canonicalize to /myaura
+      if (hash === "ritual") {
+        goToMyAura(true);
+        setSelectedProductId(null);
+        setCurrentPage("ritual");
+        return;
+      }
+
       if (
         hash === "home" ||
         hash === "cart" ||
@@ -395,8 +448,7 @@ export default function App() {
         hash === "ingredients" ||
         hash === "shipping" ||
         hash === "privacy" ||
-        hash === "thank-you" ||
-        hash === "ritual"
+        hash === "thank-you"
       ) {
         setCurrentPage(
           hash as
@@ -408,8 +460,7 @@ export default function App() {
             | "ingredients"
             | "shipping"
             | "privacy"
-            | "thank-you"
-            | "ritual",
+            | "thank-you",
         );
         if (hash === "thank-you") {
           clearStoredCart();
@@ -422,9 +473,13 @@ export default function App() {
       }
     };
 
-    parseHash();
-    window.addEventListener("hashchange", parseHash);
-    return () => window.removeEventListener("hashchange", parseHash);
+    syncFromLocation();
+    window.addEventListener("hashchange", syncFromLocation);
+    window.addEventListener("popstate", syncFromLocation);
+    return () => {
+      window.removeEventListener("hashchange", syncFromLocation);
+      window.removeEventListener("popstate", syncFromLocation);
+    };
   }, []);
 
   useEffect(() => {
@@ -752,10 +807,7 @@ export default function App() {
             <button
               className="relative text-foreground/70 hover:text-foreground transition-colors"
               aria-label="Cart"
-              onClick={() => {
-                window.location.hash = "#cart";
-                setCurrentPage("cart");
-              }}
+              onClick={() => goToPage("cart")}
             >
               <ShoppingBag size={16} strokeWidth={1.5} />
               {cartCount > 0 && (
@@ -871,7 +923,7 @@ export default function App() {
                 onClick={() => goToPage("ritual")}
                 className="text-sm tracking-[0.2em] uppercase text-foreground/80 hover:text-foreground transition-colors duration-300 border-b border-foreground/30 pb-px"
               >
-                Our Virtual Rituals
+                Find Your Aura
               </button>
             </div>
 
@@ -1953,34 +2005,20 @@ export default function App() {
           </div>
         </section>
       ) : currentPage === "ritual" ? (
-        <section className="px-5 md:px-14 py-28 md:py-36">
-          <div className="text-center mb-12">
-            <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Experience</p>
-            <h1
-              style={{ fontFamily: displayFont }}
-              className="text-3xl md:text-4xl font-light text-foreground mb-2"
-            >
-              Virtual Rituals
-            </h1>
-            <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Fire &amp; Soap</p>
-          </div>
-
-          <div className="space-y-8 text-sm leading-relaxed text-muted-foreground text-center max-w-lg mx-auto">
-            <p>
-              Guided ceremonies, moon-phase practices, and intentional moments — crafted for you to experience from
-              home. We&apos;re putting the finishing touches on this space.
-            </p>
-            <p className="text-foreground tracking-[0.2em] uppercase text-xs">Coming Soon</p>
-            <button
-              type="button"
-              onClick={() => goToPage("home")}
-              className="inline-flex items-center gap-2 border border-foreground/20 bg-black px-6 py-3 text-[10px] tracking-[0.2em] uppercase text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              Back to Home
-              <ArrowRight size={12} />
-            </button>
-          </div>
-        </section>
+        <Suspense
+          fallback={
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#080808] text-sm tracking-[0.2em] uppercase text-white/50">
+              Opening ritual…
+            </div>
+          }
+        >
+          <MiniApp
+            onExit={() => goToPage("home")}
+            catalog={products}
+            onViewProduct={(id) => goToPage("product", id)}
+            onAddToCart={(product, quantity) => addToCart(product, quantity)}
+          />
+        </Suspense>
       ) : currentPage === "thank-you" ? (
         <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">

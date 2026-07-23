@@ -1,0 +1,342 @@
+.miniapp-display {
+  font-family: "Cormorant Garamond", serif;
+}
+
+.miniapp-root {
+  font-family: "Cinzel", sans-serif;
+}
+
+.miniapp-ambient {
+  background: #080808;
+}
+
+.miniapp-pillar-active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.miniapp-sanctuary-scene {
+  opacity: 0;
+  transition: opacity 2.4s ease;
+  overflow: hidden;
+}
+
+.miniapp-sanctuary-scene.is-active {
+  opacity: 1;
+}
+
+.miniapp-sanctuary-orb {
+  position: absolute;
+  display: block;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  filter: blur(8px);
+  animation: miniapp-float-orb 16s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.miniapp-zodiac-layer {
+  overflow: hidden;
+  contain: paint;
+}
+
+.miniapp-zodiac-float {
+  /* Text presentation — simple white glyphs, not color emoji plates */
+  font-family: "Cormorant Garamond", "Times New Roman", serif;
+  font-style: normal;
+  font-weight: 300;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.55);
+  transform: translate(-50%, -50%);
+  text-shadow: none;
+  font-variant-emoji: text;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  animation: miniapp-zodiac-drift 5.5s ease-in-out infinite alternate;
+}
+
+/* Half-size + softer on small screens so they don't cover the copy */
+@media (max-width: 767px) {
+  .miniapp-zodiac-float {
+    font-size: calc(var(--zodiac-size, 4rem) * 0.5) !important;
+    color: rgba(255, 255, 255, 0.35);
+    /* Gentler drift — less compositing thrash than the desktop path */
+    animation-name: miniapp-zodiac-drift-mobile;
+    animation-duration: 7s;
+  }
+}
+
+.miniapp-glass-card {
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.miniapp-glass-card:hover {
+  transform: translateY(-1px);
+}
+
+.miniapp-pulse[data-pulse="ember"] {
+  box-shadow: 0 0 0 0 var(--miniapp-glow);
+  animation: miniapp-ember 1.8s ease-in-out infinite;
+}
+
+.miniapp-pulse[data-pulse="wave"] {
+  animation: miniapp-wave 2.2s ease-in-out infinite;
+}
+
+.miniapp-pulse[data-pulse="bloom"] {
+  animation: miniapp-bloom 2s ease-in-out infinite;
+}
+
+.miniapp-pulse[data-pulse="breeze"] {
+  animation: miniapp-breeze 2.4s ease-in-out infinite;
+}
+
+.miniapp-dial {
+  appearance: none;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+}
+
+.miniapp-dial::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 20px rgba(255, 200, 150, 0.35);
+  cursor: pointer;
+}
+
+.miniapp-dial::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+}
+
+.miniapp-flame {
+  color: #f0c09a;
+  text-shadow: 0 0 24px rgba(196, 92, 38, 0.8);
+}
+
+.miniapp-candle-stage {
+  /* Bottom-anchored; slight tuck so jar sits on the lower edge */
+  top: auto;
+  right: 0;
+  bottom: -7vh;
+  left: 0;
+  height: min(100vw, 58vh, 760px);
+  overflow: visible;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.miniapp-candle-frame {
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.miniapp-candle-frame-img {
+  left: 50%;
+  right: auto;
+  top: auto;
+  bottom: 0;
+  width: min(88vw, 480px);
+  height: auto;
+  max-width: none;
+  max-height: none;
+  transform: translateX(-50%);
+  transition: opacity 0.55s ease;
+  will-change: opacity;
+}
+
+/* Hold ring + flash share the wick anchor point */
+.miniapp-hold-ring,
+.miniapp-light-flash {
+  position: absolute;
+  left: 50%;
+  top: auto;
+  bottom: 62%;
+  width: clamp(5.5rem, 18vw, 10rem);
+  height: clamp(5.5rem, 18vw, 10rem);
+  margin: 0;
+  transform: translate(-50%, 40%);
+  transform-origin: center center;
+}
+
+.miniapp-hold-ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.miniapp-light-flash {
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 245, 220, 0.9) 0%,
+    rgba(255, 180, 90, 0.45) 35%,
+    rgba(255, 140, 50, 0.12) 62%,
+    transparent 78%
+  );
+  transform: translate(-50%, 40%) scale(0.72);
+  animation: miniapp-flash-pop 0.7s ease-out forwards;
+}
+
+@keyframes miniapp-flash-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 40%) scale(0.65);
+  }
+  22% {
+    opacity: 1;
+    transform: translate(-50%, 40%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 40%) scale(1.12);
+  }
+}
+
+@media (min-width: 768px) {
+  .miniapp-candle-stage {
+    height: min(52vw, 62vh, 640px);
+    bottom: -5vh;
+  }
+
+  .miniapp-candle-frame-img {
+    width: min(42vw, 560px);
+  }
+
+  .miniapp-hold-ring,
+  .miniapp-light-flash {
+    width: clamp(6rem, 14vw, 11rem);
+    height: clamp(6rem, 14vw, 11rem);
+    bottom: 60%;
+  }
+}
+
+.miniapp-reveal {
+  animation: miniapp-unveil 0.9s ease forwards;
+  box-shadow: 0 0 60px var(--miniapp-glow);
+}
+
+@keyframes miniapp-ember {
+  0%,
+  100% {
+    box-shadow: 0 0 12px var(--miniapp-glow);
+  }
+  50% {
+    box-shadow: 0 0 28px var(--miniapp-glow);
+  }
+}
+
+@keyframes miniapp-wave {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.15);
+  }
+}
+
+@keyframes miniapp-bloom {
+  0%,
+  100% {
+    transform: scale(1.02);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+
+@keyframes miniapp-breeze {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.88;
+  }
+}
+
+@keyframes miniapp-unveil {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes miniapp-float-orb {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(-50%, -50%) translate(4vw, -3vh) scale(1.08);
+  }
+  66% {
+    transform: translate(-50%, -50%) translate(-3vw, 4vh) scale(0.94);
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(2vw, 2vh) scale(1.04);
+  }
+}
+
+@keyframes miniapp-zodiac-drift {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0) rotate(-3deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) translate(0, -14px) rotate(2deg);
+    opacity: 0.88;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(6px, 8px) rotate(-2deg);
+    opacity: 0.65;
+  }
+}
+
+/* Smaller vertical travel on touch devices */
+@keyframes miniapp-zodiac-drift-mobile {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0);
+    opacity: 0.28;
+  }
+  50% {
+    transform: translate(-50%, -50%) translate(0, -6px);
+    opacity: 0.42;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(3px, 3px);
+    opacity: 0.32;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .miniapp-glass-card:hover,
+  .miniapp-pulse,
+  .miniapp-reveal,
+  .miniapp-sanctuary-orb,
+  .miniapp-zodiac-float {
+    animation: none !important;
+    transform: none;
+    filter: none;
+  }
+
+  .miniapp-sanctuary-scene {
+    transition-duration: 0.01ms;
+  }
+}

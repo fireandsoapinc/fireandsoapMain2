@@ -5,6 +5,8 @@ export type ShopifyProduct = {
   category: string;
   price: string;
   size: string;
+  /** Formatted net weight from the Shopify variant, e.g. "4 oz" — empty if unavailable. */
+  netWeight: string;
   description: string;
   descriptionHtml: string;
   image: string;
@@ -50,6 +52,26 @@ function normalizeCategory(productType: string | null, tags: string[]): string {
   if (lowerTags.includes("candle")) return "Candle";
   if (lowerTags.includes("soap")) return "Soap";
   return tags[0] ?? "Product";
+}
+
+function formatNetWeight(weight: number | null | undefined, unit: string | null | undefined): string {
+  if (weight == null || !Number.isFinite(weight) || weight <= 0) return "";
+
+  const rounded =
+    weight >= 100 ? String(Math.round(weight)) : String(Number(weight.toFixed(2))).replace(/\.?0+$/, "");
+
+  switch ((unit ?? "").toUpperCase()) {
+    case "OUNCES":
+      return `${rounded} oz`;
+    case "POUNDS":
+      return `${rounded} lb`;
+    case "GRAMS":
+      return `${rounded} g`;
+    case "KILOGRAMS":
+      return `${rounded} kg`;
+    default:
+      return unit ? `${rounded} ${unit.toLowerCase()}` : rounded;
+  }
 }
 
 async function shopifyGraphQL(query: string, variables: Record<string, unknown>): Promise<any> {
@@ -116,6 +138,8 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
                 node {
                   id
                   title
+                  weight
+                  weightUnit
                   priceV2 {
                     amount
                     currencyCode
@@ -141,6 +165,7 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
       : "$0.00";
     const variantTitle = variant?.title ?? "";
     const size = variantTitle && variantTitle !== "Default Title" ? variantTitle : "Standard";
+    const netWeight = formatNetWeight(variant?.weight, variant?.weightUnit);
 
     const images = node.images.edges.map((imgEdge: any) => imgEdge.node.url).filter(Boolean);
     const collections = node.collections?.edges?.map((edge: any) => edge.node.title as string).filter(Boolean) ?? [];
@@ -152,6 +177,7 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
       category: normalizeCategory(node.productType, node.tags),
       price,
       size,
+      netWeight,
       description: node.description ?? "",
       descriptionHtml: node.descriptionHtml ?? "",
       image,

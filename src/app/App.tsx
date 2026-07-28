@@ -3,6 +3,7 @@ import { ShoppingBag, Search, Menu, X, ArrowRight, ChevronLeft, ChevronRight, Pl
 import { fetchShopifyProducts, subscribeEmailToMarketing, createShopifyCheckoutUrl, ShopifyProduct, SHOP_CATEGORIES, shopCategoryFromSlug, shopCategoryToSlug, type ShopCategoryLabel } from "@/lib/shopify";
 import { getInstagramProfileUrl } from "@/lib/instagram";
 import { fetchGalleryImages, warmGalleryVideo, type GalleryImage, type GalleryTab } from "@/lib/gallery";
+import { ContactPage } from "@/app/ContactPage";
 
 const MiniApp = lazy(() => import("@/miniapp/MiniApp"));
 
@@ -36,11 +37,11 @@ const soapIngredients = [
   { name: "Aqua (Water)", description: "The essential base used to blend our ingredients smoothly." },
   {
     name: "Glycerin",
-    description: "A natural humectant that draws moisture from the air into your skin to keep it hydrated.",
+    description: "A natural humectant that draws moisture from the air into your skin.",
   },
   {
     name: "Sodium Cocoate",
-    description: "Saponified coconut oil that gives our soap its powerful, natural cleansing ability.",
+    description: "Saponified coconut oil that gives our soap its powerful cleansing ability.",
   },
   {
     name: "Sodium Stearate & Sodium Laurate",
@@ -49,11 +50,11 @@ const soapIngredients = [
   },
   {
     name: "Butyrospermum Parkii (Shea) Butter",
-    description: "An ultra-nourishing plant lipid that deeply moisturizes and softens dry skin.",
+    description: "An ultra-nourishing plant lipid.",
   },
   {
     name: "Sorbitol & Propylene Glycol",
-    description: "Skin-conditioning agents that keep the soap smooth, clear, and incredibly moisturizing.",
+    description: "Skin-conditioning agents that keep the soap smooth and clear.",
   },
   {
     name: "Sodium Laureth Sulfate",
@@ -65,11 +66,11 @@ const soapIngredients = [
   },
   {
     name: "Boswellia Carterii (Frankincense) Oil",
-    description: "A luxurious, earthy essential oil known for its deeply calming aroma and skin-soothing properties.",
+    description: "A luxurious, earthy essential oil.",
   },
   {
     name: "Mica (CI 77019)",
-    description: "A natural mineral powder used to give our soap its beautiful, eye-catching shimmer.",
+    description: "A mineral powder used to give our soap its beautiful, eye-catching shimmer.",
   },
 ];
 const displayFont = "'Cormorant Garamond', serif";
@@ -278,6 +279,7 @@ export default function App() {
     | "ingredients"
     | "shipping"
     | "privacy"
+    | "contact"
     | "thank-you"
     | "ritual"
     | "product"
@@ -350,6 +352,7 @@ export default function App() {
       | "ingredients"
       | "shipping"
       | "privacy"
+      | "contact"
       | "thank-you"
       | "ritual"
       | "product",
@@ -448,6 +451,7 @@ export default function App() {
         hash === "ingredients" ||
         hash === "shipping" ||
         hash === "privacy" ||
+        hash === "contact" ||
         hash === "thank-you"
       ) {
         setCurrentPage(
@@ -460,6 +464,7 @@ export default function App() {
             | "ingredients"
             | "shipping"
             | "privacy"
+            | "contact"
             | "thank-you",
         );
         if (hash === "thank-you") {
@@ -913,8 +918,8 @@ export default function App() {
 
               <p className="text-sm leading-relaxed text-muted-foreground">
                 
-                Crafted exclusively from ethically sourced, premium organic <br></br>
-                ingredients and infused with reiki energy to elevate <br></br>
+               
+                Infused with reiki energy to elevate <br></br>
                 your daily rituals. <br></br>
               </p>
 
@@ -1134,6 +1139,44 @@ export default function App() {
                     description={selectedProduct.description}
                     descriptionHtml={selectedProduct.descriptionHtml}
                   />
+
+                  {(selectedProduct.netWeight ||
+                    (selectedProduct.size && selectedProduct.size !== "Standard")) && (
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Net weight:{" "}
+                      <span className="text-foreground">
+                        {selectedProduct.netWeight || selectedProduct.size}
+                      </span>
+                    </p>
+                  )}
+
+                  <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+                    <button
+                      type="button"
+                      onClick={() => goToPage("ingredients")}
+                      className="text-sm leading-relaxed text-muted-foreground underline underline-offset-4 decoration-foreground/30 transition-colors hover:text-foreground hover:decoration-foreground"
+                    >
+                      View full ingredients
+                    </button>
+                  </p>
+
+                  <div className="mb-8 space-y-4 border-t border-border pt-6 text-sm leading-relaxed text-muted-foreground">
+                    <div>
+                      <p className="mb-1.5 text-[10px] tracking-[0.22em] uppercase text-accent">Directions</p>
+                      <p>
+                        Wet bar and skin. Work into a lather, apply to the body and rinse thoroughly.
+                      </p>
+                    </div>
+                    <div>
+                      <p className="mb-1.5 text-[10px] tracking-[0.22em] uppercase text-accent">
+                        Recommended caution
+                      </p>
+                      <p>
+                        Caution: For external use only. Avoid contact with eyes. Discontinue use if irritation occurs.
+                        Keep out of reach of children.
+                      </p>
+                    </div>
+                  </div>
 
                   <p className="text-lg text-foreground mb-8">{selectedProduct.price}</p>
 
@@ -1557,7 +1600,7 @@ export default function App() {
             <p>
               Because true restoration is a full sensory experience, every detail of these creations is chosen with
               meticulous care. I live for the way a product looks on your counter, how it fills a room, and the texture
-              it leaves against your skin. Every item is thoughtfully handcrafted from organic, top of the line
+              it leaves against your skin. Every item is thoughtfully handcrafted from top of the line
               ingredients, ensuring an exceptional standard that makes each creation entirely unique. To support your
               healing beyond the physical surface, every single product is infused with Reiki energy to channel a gentle
               life force into your space the exact moment you choose to take time for yourself.
@@ -1611,6 +1654,8 @@ export default function App() {
             </div>
           </div>
         </section>
+      ) : currentPage === "contact" ? (
+        <ContactPage displayFont={displayFont} />
       ) : currentPage === "privacy" ? (
         <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
@@ -2236,7 +2281,7 @@ export default function App() {
                 links: [
                   { label: "Shipping", onClick: () => goToPage("shipping") },
                   { label: "Return & Refund Policy", onClick: () => goToPage("returns") },
-                  { label: "Contact", href: "mailto:fireandsoapinc@gmail.com" },
+                  { label: "Contact", onClick: () => goToPage("contact") },
                 ],
               },
             ].map((col, index) => (
@@ -2248,14 +2293,7 @@ export default function App() {
                   <ul className="space-y-3">
                     {col.links.map((link) => (
                       <li key={link.label}>
-                        {"href" in link && link.href ? (
-                          <a
-                            href={link.href}
-                            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            {link.label}
-                          </a>
-                        ) : (
+                        {"onClick" in link && typeof link.onClick === "function" ? (
                           <button
                             type="button"
                             onClick={link.onClick}
@@ -2263,6 +2301,13 @@ export default function App() {
                           >
                             {link.label}
                           </button>
+                        ) : (
+                          <a
+                            href={"href" in link && typeof link.href === "string" ? link.href : "#"}
+                            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {link.label}
+                          </a>
                         )}
                       </li>
                     ))}
@@ -2293,6 +2338,17 @@ export default function App() {
               </div>
               <p className="text-[11px] tracking-wide text-muted-foreground">
                 © 2026 Fire and Soap. All rights reserved.
+              </p>
+              <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
+                Fire and Soap Inc. · 228 Park Ave S, New York, New York 10003-1502 US · PMB #712217
+              </p>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                <a
+                  href="tel:+18885266004"
+                  className="hover:text-foreground transition-colors"
+                >
+                  1-(888) 526-6004
+                </a>
               </p>
               <button
                 type="button"
@@ -2359,20 +2415,20 @@ function ProductDescription({
 }) {
   const fallback = formatPlainDescription(
     description ||
-      "Thoughtfully crafted with premium organic ingredients and wild-harvested botanicals. Reiki-infused and made for the moment you finally exhale.",
+      "Reiki-infused and made for the moment you finally exhale.",
   );
 
   if (descriptionHtml.trim()) {
     return (
       <div
-        className="product-description text-sm leading-relaxed text-muted-foreground mb-8 space-y-4 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+        className="product-description text-sm leading-relaxed text-muted-foreground mb-4 space-y-4 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
         dangerouslySetInnerHTML={{ __html: descriptionHtml }}
       />
     );
   }
 
   return (
-    <div className="text-sm leading-relaxed text-muted-foreground mb-8 space-y-4">
+    <div className="text-sm leading-relaxed text-muted-foreground mb-4 space-y-4">
       {fallback.map((paragraph, index) => (
         <p key={index}>{paragraph}</p>
       ))}
@@ -2429,7 +2485,7 @@ function HomepageFeaturedCard({
   const isAdded = addedId === product.id;
   const description =
     product.description ||
-    "Thoughtfully crafted with premium organic ingredients and wild-harvested botanicals. Reiki-infused and made for the moment you finally exhale.";
+    "Reiki-infused and made for the moment you finally exhale.";
 
   return (
     <article

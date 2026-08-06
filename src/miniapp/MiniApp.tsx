@@ -71,7 +71,8 @@ export default function MiniApp({ onExit, catalog, onViewProduct, onAddToCart }:
   }, [draft]);
 
   useEffect(() => {
-    if (catalog && catalog.length > 0) {
+    // Seed from parent only when we have nothing yet — don't replace a fuller ritual fetch.
+    if (catalog && catalog.length > 0 && catalogRef.current.length === 0) {
       catalogRef.current = catalog;
     }
   }, [catalog]);
@@ -82,15 +83,15 @@ export default function MiniApp({ onExit, catalog, onViewProduct, onAddToCart }:
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    if (catalogRef.current.length === 0) {
-      void fetchShopifyProducts(50)
-        .then((products) => {
-          catalogRef.current = products;
-        })
-        .catch(() => {
-          catalogRef.current = [];
-        });
-    }
+    // Always load a wider catalog for aura candle/soap name matching.
+    // App homepage only fetches ~12 products, which often omits ritual soaps.
+    void fetchShopifyProducts(50)
+      .then((products) => {
+        if (products.length > 0) catalogRef.current = products;
+      })
+      .catch(() => {
+        // Keep whatever parent seeded, if anything.
+      });
 
     return () => {
       engine.dispose();
@@ -248,7 +249,9 @@ export default function MiniApp({ onExit, catalog, onViewProduct, onAddToCart }:
               const productPair = resolveProductPair(element, sanctuary, hz, catalogRef.current);
               setDraft((d) => ({ ...d, revealed: true, productPair }));
 
-              if (catalogRef.current.length > 0) return;
+              // If either pick missed (common when catalog was still loading), refresh and re-resolve.
+              const missingPick = !productPair.candle.product || !productPair.soap.product;
+              if (!missingPick) return;
               void fetchShopifyProducts(50)
                 .then((products) => {
                   catalogRef.current = products;

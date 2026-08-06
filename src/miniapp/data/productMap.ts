@@ -14,11 +14,11 @@ const CANDLE_BY_ELEMENT: Record<ElementId, string> = {
   earth: "Golden Sanctum",
 };
 
-/** Soap chosen by sanctuary (selected in Step 3). */
+/** Soap chosen by sanctuary (selected in Step 3). Titles must match Shopify. */
 const SOAP_BY_SANCTUARY: Record<SanctuaryId, string> = {
-  "rain-cedar": "White Soap Rose",
-  "ocean-waves": "Mini Seashell Soap",
-  "crackling-hearth": "Signature Butterfly Soap",
+  "rain-cedar": "White Soap Rose Cosmetic Cleansing Bar Soap",
+  "ocean-waves": "Mini Seashell Cosmetic Cleansing Bar Soap",
+  "crackling-hearth": "Signature Butterfly Cosmetic Cleansing Bar Soap",
 };
 
 type AuraCopy = { title: string; body: string };
@@ -93,13 +93,30 @@ const AURA_THEME_BY_SANCTUARY: Record<SanctuaryId, Omit<AuraCardContent, "title"
 
 function findProduct(catalog: ShopifyProduct[], name: string): ShopifyProduct | null {
   const target = name.trim().toLowerCase();
+  if (!target) return null;
+
   const exact = catalog.find((p) => p.name.trim().toLowerCase() === target);
   if (exact) return exact;
+
   const partial = catalog.find((p) => {
     const title = p.name.trim().toLowerCase();
     return title.includes(target) || target.includes(title);
   });
-  return partial ?? null;
+  if (partial) return partial;
+
+  // Token match: all meaningful words from the map name appear in the Shopify title.
+  // Survives renames like "Signature Butterfly Soap" → "...Cosmetic Cleansing Bar Soap".
+  const tokens = target
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 2 && !["the", "and", "for", "bar"].includes(t));
+  if (tokens.length === 0) return null;
+
+  return (
+    catalog.find((p) => {
+      const title = p.name.trim().toLowerCase();
+      return tokens.every((token) => title.includes(token));
+    }) ?? null
+  );
 }
 
 function toMatchedProduct(name: string, catalog: ShopifyProduct[]): MatchedProduct {

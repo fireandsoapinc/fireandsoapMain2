@@ -188,6 +188,10 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
   });
 }
 
+/**
+ * Newsletter / marketing list via Storefront customerCreate.
+ * Kept for compatibility with the live Join flow until a dedicated ESP or Admin marketing path is adopted.
+ */
 export async function subscribeEmailToMarketing(email: string): Promise<void> {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail) {
@@ -290,4 +294,140 @@ export async function createShopifyCheckoutUrl(lines: CheckoutLine[]): Promise<s
   }
 
   return checkoutUrl;
+}
+
+/** Shopify Storefront `CustomerUserError` from customer account mutations. */
+export type CustomerUserError = {
+  code?: string | null;
+  field?: string[] | null;
+  message: string;
+};
+
+export type CustomerAccessToken = {
+  accessToken: string;
+  expiresAt: string;
+};
+
+export type CustomerActivateByUrlPayload = {
+  customer: {
+    id: string;
+    email: string | null;
+  } | null;
+  customerAccessToken: CustomerAccessToken | null;
+  customerUserErrors: CustomerUserError[];
+};
+
+export type CustomerActivateByUrlSuccess = {
+  ok: true;
+  customer: NonNullable<CustomerActivateByUrlPayload["customer"]>;
+  customerAccessToken: CustomerAccessToken | null;
+};
+
+export type CustomerActivateByUrlFailure = {
+  ok: false;
+  errors: CustomerUserError[];
+};
+
+export type CustomerActivateByUrlResult = CustomerActivateByUrlSuccess | CustomerActivateByUrlFailure;
+
+/**
+ * Safely decode a Shopify account `activationUrl` query value.
+ * URLSearchParams already decodes once; a second pass handles double-encoding.
+ */
+export function decodeActivationUrlParam(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+
+  let value = raw.trim();
+  if (!value) return null;
+
+  for (let i = 0; i < 2; i++) {
+    if (!/%[0-9A-Fa-f]{2}/.test(value)) break;
+    try {
+      value = decodeURIComponent(value);
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Activate a Shopify customer account via the emailed activation URL.
+ * Storefront API: `customerActivateByUrl(activationUrl, password)`.
+ */
+export async function activateCustomerByUrl(
+  activationUrl: string,
+  password: string,
+): Promise<CustomerActivateByUrlResult> {
+  const trimmedPassword = password.trim();
+  if (!activationUrl) {
+    return {
+      ok: false,
+      errors: [{ message: "Missing activation link. Please use the link from your email.", field: null, code: null }],
+    };
+  }
+  if (!trimmedPassword) {
+    return {
+      ok: false,
+      errors: [{ message: "Please enter a password.", field: ["password"], code: null }],
+    };
+  }
+
+  const mutation = `
+    mutation CustomerActivateByUrl($activationUrl: URL!, $password: String!) {
+      customerActivateByUrl(activationUrl: $activationUrl, password: $password) {
+        customer {
+          id
+          email
+        }
+        customerAccessToken {
+          accessToken
+          expiresAt
+        }
+        customerUserErrors {
+          code
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const json = await shopifyGraphQL(mutation, {
+    activationUrl,
+    password: trimmedPassword,
+  });
+
+  const payload = json.data?.customerActivateByUrl as CustomerActivateByUrlPayload | undefined;
+  if (!payload) {
+    return {
+      ok: false,
+      errors: [{ message: "Unexpected response from Shopify. Please try again.", field: null, code: null }],
+    };
+  }
+
+  const errors = payload.customerUserErrors ?? [];
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
+  if (!payload.customer?.id) {
+    return {
+      ok: false,
+      errors: [{ message: "Unable to activate account. The link may have expired.", field: null, code: null }],
+    };
+  }
+
+  return {
+    ok: true,
+    customer: payload.customer,
+    customerAccessToken: payload.customerAccessToken,
+  };
 }

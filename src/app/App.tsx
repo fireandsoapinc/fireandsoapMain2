@@ -3,7 +3,10 @@ import { ShoppingBag, Search, Menu, X, ArrowRight, ChevronLeft, ChevronRight, Pl
 import { fetchShopifyProducts, subscribeEmailToMarketing, createShopifyCheckoutUrl, ShopifyProduct, SHOP_CATEGORIES, shopCategoryFromSlug, shopCategoryToSlug, type ShopCategoryLabel } from "@/lib/shopify";
 import { getInstagramProfileUrl } from "@/lib/instagram";
 import { fetchGalleryImages, warmGalleryVideo, type GalleryImage, type GalleryTab } from "@/lib/gallery";
+import { customerAccountLinkProps } from "@/lib/customerAccounts";
 import { ContactPage } from "@/app/ContactPage";
+import { AccountActivatePage } from "@/app/AccountActivatePage";
+import { AccountLoginPage } from "@/app/AccountLoginPage";
 
 const MiniApp = lazy(() => import("@/miniapp/MiniApp"));
 
@@ -91,6 +94,22 @@ function isMyAuraPath(pathname = window.location.pathname) {
   return pathname.replace(/\/+$/, "").toLowerCase() === "/myaura";
 }
 
+function normalizePathname(pathname = window.location.pathname) {
+  return pathname.replace(/\/+$/, "").toLowerCase() || "/";
+}
+
+function isAccountActivatePath(pathname = window.location.pathname) {
+  return normalizePathname(pathname) === "/account/activate";
+}
+
+function isAccountLoginPath(pathname = window.location.pathname) {
+  return normalizePathname(pathname) === "/account/login";
+}
+
+function isAccountPath(pathname = window.location.pathname) {
+  return normalizePathname(pathname).startsWith("/account");
+}
+
 /** Canonical ritual URL for social / shared links. */
 function goToMyAura(replace = false) {
   const url = "/myaura";
@@ -98,14 +117,27 @@ function goToMyAura(replace = false) {
   else window.history.pushState(null, "", url);
 }
 
+function goToAccountActivate(replace = false) {
+  const search = typeof window !== "undefined" ? window.location.search : "";
+  const url = `/account/activate${search}`;
+  if (replace) window.history.replaceState(null, "", url);
+  else window.history.pushState(null, "", url);
+}
+
+function goToAccountLogin(replace = false) {
+  const url = "/account/login";
+  if (replace) window.history.replaceState(null, "", url);
+  else window.history.pushState(null, "", url);
+}
+
 /**
  * Navigate to a hash route on the site root.
- * If we're currently on /myaura, leave that path so the URL stays clean.
+ * If we're currently on /myaura or /account/*, leave that path so the URL stays clean.
  */
 function goToRootHash(hash: string, replace = false) {
   const normalized = hash.startsWith("#") ? hash : `#${hash}`;
   const url = `/${normalized}`;
-  if (isMyAuraPath() || replace) {
+  if (isMyAuraPath() || isAccountPath() || replace) {
     if (replace) window.history.replaceState(null, "", url);
     else window.history.pushState(null, "", url);
     return;
@@ -283,8 +315,12 @@ export default function App() {
     | "thank-you"
     | "ritual"
     | "product"
+    | "account-activate"
+    | "account-login"
   >(() => {
     if (typeof window === "undefined") return "home";
+    if (isAccountActivatePath()) return "account-activate";
+    if (isAccountLoginPath()) return "account-login";
     if (isMyAuraPath()) return "ritual";
     const hash = window.location.hash.replace("#", "").split("?")[0].toLowerCase();
     if (hash === "ritual") return "ritual";
@@ -355,7 +391,9 @@ export default function App() {
       | "contact"
       | "thank-you"
       | "ritual"
-      | "product",
+      | "product"
+      | "account-activate"
+      | "account-login",
     productId: string | null = null,
   ) => {
     if (page === "product" && productId) {
@@ -370,6 +408,20 @@ export default function App() {
       goToMyAura();
       setSelectedProductId(null);
       setCurrentPage("ritual");
+      return;
+    }
+
+    if (page === "account-activate") {
+      goToAccountActivate();
+      setSelectedProductId(null);
+      setCurrentPage("account-activate");
+      return;
+    }
+
+    if (page === "account-login") {
+      goToAccountLogin();
+      setSelectedProductId(null);
+      setCurrentPage("account-login");
       return;
     }
 
@@ -408,6 +460,18 @@ export default function App() {
       if (isMyAuraPath()) {
         setSelectedProductId(null);
         setCurrentPage("ritual");
+        return;
+      }
+
+      if (isAccountActivatePath()) {
+        setSelectedProductId(null);
+        setCurrentPage("account-activate");
+        return;
+      }
+
+      if (isAccountLoginPath()) {
+        setSelectedProductId(null);
+        setCurrentPage("account-login");
         return;
       }
 
@@ -707,7 +771,7 @@ export default function App() {
     try {
       await subscribeEmailToMarketing(email);
       setNewsletterState("success");
-      setNewsletterMessage("Thanks! You’re subscribed.");
+      setNewsletterMessage("Success! A confirmation email has been sent.");
       setNewsletterEmail("");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -808,7 +872,13 @@ export default function App() {
             >
               Gallery
             </button>
-      
+            <a
+              {...customerAccountLinkProps}
+              className="hidden md:block text-xs tracking-[0.18em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-300"
+            >
+              My Orders
+            </a>
+
             <button
               className="relative text-foreground/70 hover:text-foreground transition-colors"
               aria-label="Cart"
@@ -858,6 +928,14 @@ export default function App() {
                   {item}
                 </button>
               ))}
+            <a
+              {...customerAccountLinkProps}
+              onClick={() => setMenuOpen(false)}
+              style={{ fontFamily: displayFont }}
+              className="text-2xl font-light tracking-wide text-foreground hover:text-accent transition-colors text-left"
+            >
+              My Orders
+            </a>
           </nav>
         </div>
       )}
@@ -1656,6 +1734,15 @@ export default function App() {
         </section>
       ) : currentPage === "contact" ? (
         <ContactPage displayFont={displayFont} />
+      ) : currentPage === "account-activate" ? (
+        <AccountActivatePage
+          displayFont={displayFont}
+          onGoToLogin={() => {
+            window.location.assign(customerAccountLinkProps.href);
+          }}
+        />
+      ) : currentPage === "account-login" ? (
+        <AccountLoginPage displayFont={displayFont} />
       ) : currentPage === "privacy" ? (
         <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
@@ -2230,11 +2317,23 @@ export default function App() {
               {(newsletterState === "success" || newsletterState === "error") && newsletterMessage && (
                 <p
                   role="status"
-                  className={`mt-4 text-sm ${newsletterState === "success" ? "text-accent-foreground" : "text-destructive-foreground"}`}
+                  aria-live="polite"
+                  className={`mt-4 text-sm leading-relaxed ${
+                    newsletterState === "success" ? "text-accent" : "text-destructive-foreground"
+                  }`}
                 >
                   {newsletterMessage}
                 </p>
               )}
+              <p className="mt-6 text-xs text-muted-foreground">
+                Looking for a past purchase?{" "}
+                <a
+                  {...customerAccountLinkProps}
+                  className="text-foreground underline underline-offset-4 hover:text-accent transition-colors"
+                >
+                  My Orders
+                </a>
+              </p>
             </div>
           </ScrollReveal>
         </div>

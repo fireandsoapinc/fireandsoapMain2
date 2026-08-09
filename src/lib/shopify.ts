@@ -3,7 +3,15 @@ export type ShopifyProduct = {
   variantId: string;
   name: string;
   category: string;
+  /** Formatted sale / current price, e.g. "USD 24.00". */
   price: string;
+  /** Numeric amount for cart math (sale price). */
+  priceAmount: number;
+  /**
+   * Formatted compare-at (original) price when higher than `price`.
+   * Empty string when there is no real sale.
+   */
+  compareAtPrice: string;
   size: string;
   /** Formatted net weight from the Shopify variant, e.g. "4 oz" — empty if unavailable. */
   netWeight: string;
@@ -15,23 +23,51 @@ export type ShopifyProduct = {
   collections: string[];
 };
 
-export const SHOP_CATEGORIES = [
-  { label: "All", slug: null },
+export function hasSalePrice(product: Pick<ShopifyProduct, "compareAtPrice">): boolean {
+  return Boolean(product.compareAtPrice);
+}
+
+function formatMoney(amount: number | string, currencyCode: string): string {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return "$0.00";
+  return `${currencyCode} ${value.toFixed(2)}`;
+}
+
+export type ShopCategory = {
+  label: string;
+  /** Shopify collection handle, or null for "All". */
+  slug: string | null;
+};
+
+export const ALL_SHOP_CATEGORY: ShopCategory = { label: "All", slug: null };
+
+/** @deprecated Prefer fetchShopifyCollections(); kept for gradual migration. */
+export const SHOP_CATEGORIES: ShopCategory[] = [
+  ALL_SHOP_CATEGORY,
   { label: "Summer Collection", slug: "summer-collection" },
   { label: "Candles", slug: "candles" },
   { label: "Soaps", slug: "soaps" },
-] as const;
+];
 
-export type ShopCategoryLabel = (typeof SHOP_CATEGORIES)[number]["label"];
+export type ShopCategoryLabel = string;
 
-export function shopCategoryFromSlug(slug: string): ShopCategoryLabel {
-  const match = SHOP_CATEGORIES.find((category) => category.slug === slug);
+export function shopCategoryFromSlug(slug: string, categories: ShopCategory[] = SHOP_CATEGORIES): string {
+  const match = categories.find((category) => category.slug === slug);
   return match?.label ?? "All";
 }
 
-export function shopCategoryToSlug(label: ShopCategoryLabel): string | null {
-  const match = SHOP_CATEGORIES.find((category) => category.label === label);
+export function shopCategoryToSlug(label: string, categories: ShopCategory[] = SHOP_CATEGORIES): string | null {
+  const match = categories.find((category) => category.label === label);
   return match?.slug ?? null;
+}
+
+function slugifyHandle(handle: string | null | undefined, title: string): string {
+  if (handle?.trim()) return handle.trim().toLowerCase();
+  return title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 const shopDomain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN;
@@ -106,6 +142,43 @@ async function shopifyGraphQL(query: string, variables: Record<string, unknown>)
   return json;
 }
 
+/**
+ * Shop filter tabs from Shopify collections (plus "All").
+ * Ordered newest-first via ID desc — Storefront API has no CREATED_AT for collections;
+ * Shopify IDs increase over time, so this approximates recently created.
+ */
+export async function fetchShopifyCollections(first = 50): Promise<ShopCategory[]> {
+  const query = `
+    query GetCollections($first: Int!) {
+      collections(first: $first, sortKey: ID, reverse: false) {
+        edges {
+          node {
+            id
+            title
+            handle
+          }
+        }
+      }
+    }
+  `;
+
+  const json = await shopifyGraphQL(query, { first });
+  const edges = json.data?.collections?.edges ?? [];
+
+  const fromShopify: ShopCategory[] = edges
+    .map((edge: { node: { title?: string; handle?: string } }) => {
+      const title = edge.node?.title?.trim() ?? "";
+      if (!title) return null;
+      return {
+        label: title,
+        slug: slugifyHandle(edge.node.handle, title),
+      } satisfies ShopCategory;
+    })
+    .filter(Boolean) as ShopCategory[];
+
+  return [ALL_SHOP_CATEGORY, ...fromShopify];
+}
+
 export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]> {
   const query = `
     query GetProducts($first: Int!) {
@@ -144,6 +217,10 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
                     amount
                     currencyCode
                   }
+                  compareAtPriceV2 {
+                    amount
+                    currencyCode
+                  }
                 }
               }
             }
@@ -160,9 +237,17 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
     const image = node.images.edges[0]?.node.url ?? "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&h=720&fit=crop&auto=format";
     const variant = node.variants.edges[0]?.node;
     const rawPrice = variant?.priceV2;
-    const price = rawPrice
-      ? `${rawPrice.currencyCode} ${Number(rawPrice.amount).toFixed(2)}`
-      : "$0.00";
+    const priceAmount = rawPrice ? Number(rawPrice.amount) : 0;
+    const currencyCode = rawPrice?.currencyCode ?? "USD";
+    const price = rawPrice ? formatMoney(priceAmount, currencyCode) : "$0.00";
+
+    const rawCompare = variant?.compareAtPriceV2;
+    const compareAmount = rawCompare ? Number(rawCompare.amount) : NaN;
+    const compareAtPrice =
+      Number.isFinite(compareAmount) && compareAmount > priceAmount
+        ? formatMoney(compareAmount, rawCompare.currencyCode ?? currencyCode)
+        : "";
+
     const variantTitle = variant?.title ?? "";
     const size = variantTitle && variantTitle !== "Default Title" ? variantTitle : "Standard";
     const netWeight = formatNetWeight(variant?.weight, variant?.weightUnit);
@@ -176,6 +261,8 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
       name: node.title,
       category: normalizeCategory(node.productType, node.tags),
       price,
+      priceAmount: Number.isFinite(priceAmount) ? priceAmount : 0,
+      compareAtPrice,
       size,
       netWeight,
       description: node.description ?? "",

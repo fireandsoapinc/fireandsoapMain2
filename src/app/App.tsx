@@ -1,6 +1,18 @@
 import { useState, useEffect, useRef, lazy, Suspense, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ShoppingBag, Search, Menu, X, ArrowRight, ChevronLeft, ChevronRight, Play } from "lucide-react";
-import { fetchShopifyProducts, subscribeEmailToMarketing, createShopifyCheckoutUrl, ShopifyProduct, SHOP_CATEGORIES, shopCategoryFromSlug, shopCategoryToSlug, type ShopCategoryLabel } from "@/lib/shopify";
+import {
+  fetchShopifyProducts,
+  fetchShopifyCollections,
+  subscribeEmailToMarketing,
+  createShopifyCheckoutUrl,
+  ShopifyProduct,
+  ALL_SHOP_CATEGORY,
+  SHOP_CATEGORIES,
+  shopCategoryFromSlug,
+  shopCategoryToSlug,
+  hasSalePrice,
+  type ShopCategory,
+} from "@/lib/shopify";
 import { getInstagramProfileUrl } from "@/lib/instagram";
 import { fetchGalleryImages, warmGalleryVideo, type GalleryImage, type GalleryTab } from "@/lib/gallery";
 import { customerAccountLinkProps } from "@/lib/customerAccounts";
@@ -33,8 +45,6 @@ const rituals = [
     body: "Allow at least 20 minutes for the wax to pool evenly to the edges. This is your time. Let the scent carry you.",
   },
 ];
-
-const categories = SHOP_CATEGORIES.map((category) => category.label);
 
 const soapIngredients = [
   { name: "Aqua (Water)", description: "The essential base used to blend our ingredients smoothly." },
@@ -291,7 +301,10 @@ function GalleryMediaTile({
 
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<ShopCategoryLabel>("All");
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [shopCategories, setShopCategories] = useState<ShopCategory[]>([ALL_SHOP_CATEGORY]);
+  const shopCategoriesRef = useRef(shopCategories);
+  shopCategoriesRef.current = shopCategories;
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [addedId, setAddedId] = useState<string | null>(null);
   const [newsletterEmail, setNewsletterEmail] = useState("");
@@ -359,9 +372,10 @@ export default function App() {
       }
     }
 
-    fetchShopifyProducts(12)
-      .then((items) => {
+    Promise.all([fetchShopifyProducts(50), fetchShopifyCollections()])
+      .then(([items, collections]) => {
         setProducts(items);
+        setShopCategories(collections.length > 1 ? collections : SHOP_CATEGORIES);
         setCartItems((current) =>
           current.map((item) => {
             const latest = items.find((product) => product.id === item.product.id);
@@ -369,7 +383,10 @@ export default function App() {
           }),
         );
       })
-      .catch((error) => setProductError(error instanceof Error ? error.message : String(error)))
+      .catch((error) => {
+        setProductError(error instanceof Error ? error.message : String(error));
+        setShopCategories(SHOP_CATEGORIES);
+      })
       .finally(() => setLoadingProducts(false));
   }, []);
 
@@ -431,13 +448,13 @@ export default function App() {
     setCurrentPage(page);
   };
 
-  function goToShopCategory(category: ShopCategoryLabel) {
+  function goToShopCategory(category: string) {
     setActiveCategory(category);
     setCurrentPage("shop");
     setSelectedProductId(null);
     setMenuOpen(false);
 
-    const slug = shopCategoryToSlug(category);
+    const slug = shopCategoryToSlug(category, shopCategoriesRef.current);
     goToRootHash(slug ? `#shop-${slug}` : "#shop");
   }
 
@@ -493,7 +510,7 @@ export default function App() {
 
       if (hash.startsWith("shop-")) {
         setCurrentPage("shop");
-        setActiveCategory(shopCategoryFromSlug(hash.slice("shop-".length)));
+        setActiveCategory(shopCategoryFromSlug(hash.slice("shop-".length), shopCategoriesRef.current));
         setSelectedProductId(null);
         return;
       }
@@ -598,6 +615,17 @@ export default function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentPage]);
+
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (!hash.startsWith("shop-") || shopCategories.length <= 1) return;
+    setActiveCategory(shopCategoryFromSlug(hash.slice("shop-".length), shopCategories));
+  }, [shopCategories]);
+
+  const categoryLabels = shopCategories.map((category) => category.label);
+  const footerShopLinks = shopCategories.filter((category) => category.slug);
+  const summerCollection =
+    shopCategories.find((category) => /summer/i.test(category.label)) ?? footerShopLinks[0] ?? null;
 
   const filtered = products.filter((p) => {
     if (activeCategory === "All") return true;
@@ -964,10 +992,12 @@ export default function App() {
     <div className="flex flex-col md:flex-col items-center gap-4">
       <button
         type="button"
-        onClick={() => goToShopCategory("Summer Collection")}
+        onClick={() =>
+          summerCollection ? goToShopCategory(summerCollection.label) : goToPage("shop")
+        }
         className="inline-flex items-center gap-3 text-xs tracking-[0.2em] uppercase text-foreground bg-black px-8 py-4 hover:bg-accent hover:text-accent-foreground transition-colors duration-300"
       >
-        Explore the Summer Collection
+        {summerCollection ? `Explore the ${summerCollection.label}` : "Explore the Shop"}
         <ArrowRight size={12} />
       </button>
       
@@ -1100,11 +1130,11 @@ export default function App() {
                 Every candle and soap is hand-crafted with natural ingredients, infused with Reiki energy, and created with intention.
               </p>
               <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-                {categories.map((cat) => (
+                {categoryLabels.map((cat) => (
                   <button
                     key={cat}
                     type="button"
-                    onClick={() => goToShopCategory(cat as ShopCategoryLabel)}
+                    onClick={() => goToShopCategory(cat)}
                     className={`text-[10px] tracking-[0.2em] uppercase transition-opacity duration-200 ${
                       activeCategory === cat
                         ? "text-foreground opacity-100"
@@ -1256,7 +1286,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  <p className="text-lg text-foreground mb-8">{selectedProduct.price}</p>
+                  <div className="mb-8">
+                    <ProductPrice product={selectedProduct} size="lg" />
+                  </div>
 
                   <div className="border-t border-border pt-6 mb-8">
                     <div className="flex items-center gap-4 mb-6">
@@ -1397,7 +1429,9 @@ export default function App() {
                           +
                         </button>
                       </div>
-                      <p className="min-w-[72px] text-right text-sm font-medium text-foreground">{product.price}</p>
+                      <div className="min-w-[72px] text-right">
+                        <ProductPrice product={product} align="right" />
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeFromCart(product.id)}
@@ -1416,7 +1450,9 @@ export default function App() {
                   <div className="flex items-center justify-between gap-4">
                     <span className="font-medium text-foreground">Subtotal</span>
                     <span className="text-foreground">
-                      {cartItems.reduce((sum, item) => sum + Number(item.product.price.replace(/[^0-9.]/g, "")) * item.quantity, 0).toLocaleString("en-US", {
+                      {cartItems
+                        .reduce((sum, item) => sum + (item.product.priceAmount ?? Number(item.product.price.replace(/[^0-9.]/g, ""))) * item.quantity, 0)
+                        .toLocaleString("en-US", {
                         style: "currency",
                         currency: "USD",
                       })}
@@ -2361,11 +2397,13 @@ export default function App() {
             {[
               {
                 heading: "Shop",
-                links: [
-                  { label: "Summer Collection", onClick: () => goToShopCategory("Summer Collection") },
-                  { label: "Candles", onClick: () => goToShopCategory("Candles") },
-                  { label: "Soaps", onClick: () => goToShopCategory("Soaps") },
-                ],
+                links:
+                  footerShopLinks.length > 0
+                    ? footerShopLinks.map((category) => ({
+                        label: category.label,
+                        onClick: () => goToShopCategory(category.label),
+                      }))
+                    : [{ label: "All Products", onClick: () => goToPage("shop") }],
               },
               {
                 heading: "About",
@@ -2505,6 +2543,36 @@ function formatPlainDescription(text: string): string[] {
   return withBreaks ? [withBreaks] : [];
 }
 
+function ProductPrice({
+  product,
+  className = "",
+  size = "sm",
+  align = "left",
+}: {
+  product: Product;
+  className?: string;
+  size?: "sm" | "lg";
+  align?: "left" | "right" | "center";
+}) {
+  const onSale = hasSalePrice(product);
+  const alignClass =
+    align === "right" ? "justify-end text-right" : align === "center" ? "justify-center text-center" : "justify-start text-left";
+  const priceClass = size === "lg" ? "text-lg" : "text-sm";
+
+  if (!onSale) {
+    return <p className={`${priceClass} text-foreground ${className}`.trim()}>{product.price}</p>;
+  }
+
+  return (
+    <p
+      className={`inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ${alignClass} ${priceClass} ${className}`.trim()}
+    >
+      <span className="text-muted-foreground line-through decoration-foreground/40">{product.compareAtPrice}</span>
+      <span className="font-medium text-foreground">{product.price}</span>
+    </p>
+  );
+}
+
 function ProductDescription({
   description,
   descriptionHtml,
@@ -2563,7 +2631,11 @@ function ShopProductCard({
       >
         {product.name}
       </h3>
-      <p className="text-sm text-muted-foreground">{product.price}</p>
+      <ProductPrice
+        product={product}
+        align={centered ? "center" : "left"}
+        className="text-muted-foreground [&_span.font-medium]:text-foreground"
+      />
     </button>
   );
 }
@@ -2627,7 +2699,7 @@ function HomepageFeaturedCard({
         >
           <div className="overflow-hidden">
             <p className="text-sm leading-relaxed text-muted-foreground line-clamp-2 md:line-clamp-3 mb-3 md:mb-4">{description}</p>
-            <p className="text-sm text-foreground mb-4">{product.price}</p>
+            <ProductPrice product={product} className="mb-4" />
             <button
               type="button"
               onClick={() => onAdd(product)}
@@ -2642,13 +2714,13 @@ function HomepageFeaturedCard({
           </div>
         </div>
 
-        <p
+        <div
           className={`text-sm text-muted-foreground transition-opacity duration-500 ease-out ${
             featured ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
           }`}
         >
-          {product.price}
-        </p>
+          <ProductPrice product={product} className="text-muted-foreground [&_span.font-medium]:text-foreground" />
+        </div>
       </div>
     </article>
   );

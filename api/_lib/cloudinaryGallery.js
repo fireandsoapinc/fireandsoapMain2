@@ -9,7 +9,7 @@ const ALLOWED_FOLDERS = new Set(Object.values(GALLERY_FOLDERS));
 const MEDIA_TYPES = ["image", "video"];
 
 export function resolveGalleryFolder(input) {
-  if (!input) return GALLERY_FOLDERS.our;
+  if (!input) return GALLERY_FOLDERS.customers;
   if (input === "our" || input === "customers") return GALLERY_FOLDERS[input];
   if (ALLOWED_FOLDERS.has(input)) return input;
   return null;
@@ -39,12 +39,44 @@ function configureCloudinary() {
   return cloudinary;
 }
 
+function firstString(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function normalizeInstagramUser(value) {
+  if (!value) return null;
+  const handle = String(value).trim().replace(/^@+/, "").replace(/\s+/g, "");
+  if (!handle || !/^[A-Za-z0-9._]+$/.test(handle)) return null;
+  return handle;
+}
+
+function resolveInstagramUser(resource) {
+  const metadata = resource.metadata || {};
+  const custom = resource.context?.custom || {};
+  return normalizeInstagramUser(
+    firstString(
+      metadata.user,
+      metadata.User,
+      metadata.instagram_user,
+      metadata.instagramUser,
+      custom.user,
+      custom.User,
+      custom.instagram_user,
+      custom.instagramUser,
+    ),
+  );
+}
+
 function mapResource(resource) {
   const mediaType = resource.resource_type === "video" ? "video" : "image";
   const width = resource.width || 800;
   const height = resource.height || width;
   const alt =
     resource.context?.custom?.alt || resource.display_name || resource.public_id.split("/").pop();
+  const instagramUser = resolveInstagramUser(resource);
 
   if (mediaType === "video") {
     // Lean progressive MP4 for faster time-to-first-frame in the lightbox.
@@ -81,6 +113,7 @@ function mapResource(resource) {
       height,
       alt,
       createdAt: resource.created_at || null,
+      instagramUser,
     };
   }
 
@@ -111,6 +144,7 @@ function mapResource(resource) {
     height,
     alt,
     createdAt: resource.created_at || null,
+    instagramUser,
   };
 }
 
@@ -121,6 +155,8 @@ async function listFromAssetFolder(name) {
         const result = await cloudinary.api.resources_by_asset_folder(name, {
           max_results: 100,
           resource_type: resourceType,
+          context: true,
+          metadata: true,
         });
         return result.resources || [];
       } catch {
@@ -140,6 +176,8 @@ async function listFromPrefix(name) {
           resource_type: resourceType,
           prefix: `${name}/`,
           max_results: 100,
+          context: true,
+          metadata: true,
         });
         return result.resources || [];
       } catch {
@@ -156,6 +194,8 @@ async function listFromSearch(name) {
       .expression(
         `(asset_folder:"${name}" OR folder:"${name}" OR folder:"${name}/*" OR tags:"${name}") AND resource_type:(image OR video)`,
       )
+      .with_field("context")
+      .with_field("metadata")
       .sort_by("created_at", "desc")
       .max_results(100)
       .execute();

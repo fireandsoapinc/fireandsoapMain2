@@ -19,6 +19,7 @@ import { customerAccountLinkProps } from "@/lib/customerAccounts";
 import { ContactPage } from "@/app/ContactPage";
 import { AccountActivatePage } from "@/app/AccountActivatePage";
 import { AccountLoginPage } from "@/app/AccountLoginPage";
+import { ProductReviews } from "@/app/ProductReviews";
 
 const MiniApp = lazy(() => import("@/miniapp/MiniApp"));
 
@@ -223,6 +224,8 @@ function GalleryMediaTile({
   const [hovering, setHovering] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const isVideo = item.mediaType === "video" && Boolean(item.videoUrl);
+  const instagramUser = item.instagramUser?.trim() || null;
+  const instagramUrl = instagramUser ? getInstagramProfileUrl(instagramUser) : null;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -240,62 +243,81 @@ function GalleryMediaTile({
   }, [hovering, isVideo, item.videoUrl]);
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        if (isVideo) warmGalleryVideo(item.videoUrl);
-        onOpen(item);
-      }}
-      onMouseEnter={() => {
-        if (isVideo) setHovering(true);
-      }}
-      onMouseLeave={() => setHovering(false)}
-      onFocus={() => {
-        if (isVideo) warmGalleryVideo(item.videoUrl);
-      }}
-      className="group relative isolate block w-full overflow-hidden border border-border bg-card text-left cursor-pointer"
-      aria-label={
-        isVideo
-          ? `Preview video: ${item.alt || "gallery video"}`
-          : `View image: ${item.alt || "gallery image"}`
-      }
-    >
-      <img
-        src={item.imageUrl}
-        alt={item.alt || "Fire and Soap gallery image"}
-        className="block w-full h-auto"
-        loading="lazy"
-        draggable={false}
-      />
-      {isVideo && (
-        <video
-          ref={videoRef}
-          src={item.videoUrl || undefined}
-          poster={item.posterUrl || item.imageUrl}
-          className={`pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
-            hovering ? "opacity-100" : "opacity-0"
-          }`}
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          aria-hidden
-          tabIndex={-1}
-        />
-      )}
-      <div className="pointer-events-none absolute inset-0 bg-background/0 transition-colors duration-300 group-hover:bg-background/15" />
-      {isVideo && (
-        <span
-          className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${
-            hovering ? "opacity-0" : "opacity-100"
-          }`}
+    <div className="group relative isolate w-full overflow-hidden border border-border bg-card">
+      {instagramUser && instagramUrl && (
+        <a
+          href={instagramUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="absolute top-0 left-0 right-0 z-20 flex items-center gap-2 bg-gradient-to-b from-black/55 to-transparent px-2.5 py-2 text-white"
+          aria-label={`Open @${instagramUser} on Instagram`}
         >
-          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/40 bg-black/45 text-white backdrop-blur-sm">
-            <Play size={20} strokeWidth={1.5} fill="currentColor" className="ml-0.5" />
+          <span
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 text-[9px] font-medium uppercase tracking-wide"
+            aria-hidden="true"
+          >
+            {instagramUser.charAt(0)}
           </span>
-        </span>
+          <span className="truncate text-[10px] tracking-[0.08em]">@{instagramUser}</span>
+        </a>
       )}
-    </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (isVideo) warmGalleryVideo(item.videoUrl);
+          onOpen(item);
+        }}
+        onMouseEnter={() => {
+          if (isVideo) setHovering(true);
+        }}
+        onMouseLeave={() => setHovering(false)}
+        onFocus={() => {
+          if (isVideo) warmGalleryVideo(item.videoUrl);
+        }}
+        className="relative block w-full text-left cursor-pointer"
+        aria-label={
+          isVideo
+            ? `Preview video: ${item.alt || "gallery video"}`
+            : `View image: ${item.alt || "gallery image"}`
+        }
+      >
+        <img
+          src={item.imageUrl}
+          alt={item.alt || "Fire and Soap gallery image"}
+          className="block w-full h-auto"
+          loading="lazy"
+          draggable={false}
+        />
+        {isVideo && (
+          <video
+            ref={videoRef}
+            src={item.videoUrl || undefined}
+            poster={item.posterUrl || item.imageUrl}
+            className={`pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
+              hovering ? "opacity-100" : "opacity-0"
+            }`}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-hidden
+            tabIndex={-1}
+          />
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-background/0 transition-colors duration-300 group-hover:bg-background/15" />
+        {isVideo && (
+          <span
+            className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${
+              hovering ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/40 bg-black/45 text-white backdrop-blur-sm">
+              <Play size={20} strokeWidth={1.5} fill="currentColor" className="ml-0.5" />
+            </span>
+          </span>
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -324,6 +346,7 @@ export default function App() {
     | "ingredients"
     | "shipping"
     | "privacy"
+    | "disclaimers"
     | "contact"
     | "thank-you"
     | "ritual"
@@ -340,7 +363,7 @@ export default function App() {
     return "home";
   });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [galleryTab, setGalleryTab] = useState<GalleryTab>("our");
+  const [galleryTab, setGalleryTab] = useState<GalleryTab>("customers");
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [loadingGallery, setLoadingGallery] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
@@ -354,6 +377,7 @@ export default function App() {
   const relatedScrollRef = useRef<HTMLDivElement>(null);
   const [productQuantity, setProductQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [cartBump, setCartBump] = useState(false);
   const instagramUsername = import.meta.env.VITE_INSTAGRAM_USERNAME || "fireandsoap";
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -405,6 +429,7 @@ export default function App() {
       | "ingredients"
       | "shipping"
       | "privacy"
+      | "disclaimers"
       | "contact"
       | "thank-you"
       | "ritual"
@@ -532,6 +557,7 @@ export default function App() {
         hash === "ingredients" ||
         hash === "shipping" ||
         hash === "privacy" ||
+        hash === "disclaimers" ||
         hash === "contact" ||
         hash === "thank-you"
       ) {
@@ -545,6 +571,7 @@ export default function App() {
             | "ingredients"
             | "shipping"
             | "privacy"
+            | "disclaimers"
             | "contact"
             | "thank-you",
         );
@@ -613,8 +640,8 @@ export default function App() {
   }, [selectedGalleryItem]);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [currentPage]);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [currentPage, selectedProductId]);
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
@@ -739,7 +766,10 @@ export default function App() {
       return [...current, { product, quantity }];
     });
     setAddedId(product.id);
+    setCartBump(false);
+    requestAnimationFrame(() => setCartBump(true));
     setTimeout(() => setAddedId(null), 1200);
+    setTimeout(() => setCartBump(false), 450);
   }
 
   function updateCartQuantity(productId: string, delta: number) {
@@ -908,7 +938,9 @@ export default function App() {
             </a>
 
             <button
-              className="relative text-foreground/70 hover:text-foreground transition-colors"
+              className={`relative text-foreground/70 hover:text-foreground transition-colors ${
+                cartBump ? "cart-bump" : ""
+              }`}
               aria-label="Cart"
               onClick={() => goToPage("cart")}
             >
@@ -1036,7 +1068,7 @@ export default function App() {
                 onClick={() => goToPage("ritual")}
                 className="text-sm tracking-[0.2em] uppercase text-foreground/80 hover:text-foreground transition-colors duration-300 border-b border-foreground/30 pb-px"
               >
-                Find Your Aura
+                Take the Aura Quiz
               </button>
             </div>
 
@@ -1127,7 +1159,9 @@ export default function App() {
                 Products
               </h1>
               <p className="text-sm leading-relaxed text-muted-foreground mb-8">
-                Every candle and soap is hand-crafted with natural ingredients, infused with Reiki energy, and created with intention.
+              Every price is an angel number, intentionally chosen to embody a specific energy and intention.
+              <br />
+              Choose the number that resonates with you and bring its meaning into your ritual.
               </p>
               <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
                 {categoryLabels.map((cat) => (
@@ -1283,6 +1317,11 @@ export default function App() {
                         Caution: For external use only. Avoid contact with eyes. Discontinue use if irritation occurs.
                         Keep out of reach of children.
                       </p>
+                      <p className="mt-4">
+                        Fire and Soap products are handcrafted for their aromatic and aesthetic qualities and are not
+                        intended to diagnose, treat, cure, or prevent any disease or medical condition. They are not a
+                        substitute for professional medical or mental health advice.
+                      </p>
                     </div>
                   </div>
 
@@ -1325,6 +1364,11 @@ export default function App() {
                   </div>
                 </div>
               </div>
+
+              <ProductReviews
+                shopifyProductId={selectedProduct.shopifyProductId}
+                displayFont={displayFont}
+              />
 
               {relatedProducts.length > 0 && (
                 <div className="mt-20 md:mt-28 pt-12 border-t border-border">
@@ -1499,8 +1543,8 @@ export default function App() {
             <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
               {(
                 [
-                  { id: "our" as const, label: "Our Gallery" },
                   { id: "customers" as const, label: "From Our Customers" },
+                  { id: "our" as const, label: "Our Gallery" },
                 ] as const
               ).map((tab) => (
                 <button
@@ -1563,26 +1607,44 @@ export default function App() {
               >
                 <X size={22} strokeWidth={1.5} />
               </button>
-              <div className="relative max-h-full max-w-5xl flex items-center justify-center">
+              <div
+                className="relative max-h-full max-w-5xl flex flex-col items-center justify-center gap-4"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {selectedGalleryItem.instagramUser && (
+                  <a
+                    href={getInstagramProfileUrl(selectedGalleryItem.instagramUser)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-white/85 hover:text-white transition-colors"
+                    aria-label={`Open @${selectedGalleryItem.instagramUser} on Instagram`}
+                  >
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15 text-[10px] font-medium uppercase tracking-wide"
+                      aria-hidden="true"
+                    >
+                      {selectedGalleryItem.instagramUser.charAt(0)}
+                    </span>
+                    <span className="text-xs tracking-[0.12em]">@{selectedGalleryItem.instagramUser}</span>
+                  </a>
+                )}
                 {selectedGalleryItem.mediaType === "video" && selectedGalleryItem.videoUrl ? (
                   <video
                     key={selectedGalleryItem.id}
                     src={selectedGalleryItem.videoUrl}
                     poster={selectedGalleryItem.posterUrl || selectedGalleryItem.imageUrl}
-                    className="max-h-[85vh] max-w-full w-auto h-auto"
+                    className="max-h-[80vh] max-w-full w-auto h-auto"
                     controls
                     playsInline
                     autoPlay
                     preload="auto"
-                    onClick={(event) => event.stopPropagation()}
                     aria-label={selectedGalleryItem.alt || "Fire and Soap gallery video"}
                   />
                 ) : (
                   <img
                     src={selectedGalleryItem.fullUrl || selectedGalleryItem.imageUrl}
                     alt={selectedGalleryItem.alt || "Fire and Soap gallery image"}
-                    className="max-h-[85vh] max-w-full w-auto h-auto object-contain"
-                    onClick={(event) => event.stopPropagation()}
+                    className="max-h-[80vh] max-w-full w-auto h-auto object-contain"
                   />
                 )}
               </div>
@@ -1592,64 +1654,79 @@ export default function App() {
       ) : currentPage === "returns" ? (
         <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
-            <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Policy</p>
+            <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">FIRE &amp; SOAP INC.</p>
             <h1
               style={{ fontFamily: displayFont }}
               className="text-3xl md:text-4xl font-light text-foreground mb-2"
             >
-              Return &amp; Refund Policy
+              Return &amp; Exchange Policy
             </h1>
-            <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Fire &amp; Soap</p>
           </div>
 
           <div className="space-y-8 text-sm leading-relaxed text-muted-foreground">
             <p>
-              All of our soaps and candles are made to order, handcrafted just for you. Because each piece is created specifically for your order, we&apos;re unable to accept returns or exchanges once production has begun.
-            </p>
-            <p>
-              We&apos;re committed to white glove service from start to finish, so if anything about your experience doesn&apos;t feel right, please reach out — we want to know.
+              Every piece in the Sanctum Collection is handmade to order, reiki-infused, and finished with crystal chips chosen intuitively for that piece. We want you to feel fully confident in your purchase — here&apos;s how returns work.
             </p>
 
             <div>
-              <h2 className="text-base font-medium text-foreground mb-3">Cancellations</h2>
+              <h2 className="text-base font-medium text-foreground mb-3">Standard Returns</h2>
               <p>
-                Need to cancel? You can do so within 24–48 hours of placing your order, before production starts. Once your piece is in production, we&apos;re unable to cancel or modify the order.
+                Unopened, unused items in original packaging may be returned within 14 days of delivery for a refund or exchange. This includes all standard Sanctum Collection candles and soaps — the reiki infusion and crystal selection are part of our craft process, not a personalization, so these items are returnable under our standard policy.
               </p>
             </div>
 
             <div>
-              <h2 className="text-base font-medium text-foreground mb-3">Damaged or Defective Items</h2>
-              <p className="mb-4">If something arrives damaged or defective, we&apos;ll fix it — no hassle.</p>
-              <ul className="space-y-2 list-none">
-                <li>• Reach out within 14 days of delivery</li>
-                <li>• Send us your order number and a photo of the issue</li>
-                <li>• You choose: full refund or free replacement</li>
-                <li>• We cover all shipping costs related to the fix</li>
-                <li>• As an apology for the inconvenience, we&apos;ll also send you a $10 credit toward your next order</li>
-              </ul>
-              <p className="mt-4">
-                Past 14 days, contact us anyway. We&apos;ll still look at genuine damage or defect claims case-by-case, and if the product&apos;s at fault, we&apos;ll cover the cost to make it right — plus the same $10 credit.
+              <h2 className="text-base font-medium text-foreground mb-3">Used or Lit Items</h2>
+              <p>
+                Due to the handmade, consumable nature of our products, candles that have been lit and soaps that have been used are not eligible for return or exchange — unless the item arrived defective or damaged.
               </p>
             </div>
 
             <div>
-              <h2 className="text-base font-medium text-foreground mb-3">Not Eligible for Return</h2>
-              <p>Products that have been used, burned, or altered — unless it&apos;s a verified defect.</p>
+              <h2 className="text-base font-medium text-foreground mb-3">Defective or Damaged Items</h2>
+              <p>
+                Contact us within 7 days of delivery with photos of the issue. We&apos;ll cover return shipping and send a replacement or full refund.
+              </p>
             </div>
 
             <div>
-              <h2 className="text-base font-medium text-foreground mb-3">How to Start a Claim</h2>
+              <h2 className="text-base font-medium text-foreground mb-3">Change of Mind</h2>
               <p>
-                Email{" "}
+                Customer covers return shipping. Once we receive the item, a refund is issued to the original payment method within 5–7 business days.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-base font-medium text-foreground mb-3">Custom &amp; Special Orders</h2>
+              <p>
+                Items created to a customer&apos;s specific request — a custom scent, personalization, or special commission — are made-to-order for that customer and are final sale, not eligible for return or exchange.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-base font-medium text-foreground mb-3">Non-Returnable Items</h2>
+              <p>
+                Gift cards, final sale/clearance items, custom or special-order pieces, and any product that has been lit, burned, or used (except as noted above).
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-base font-medium text-foreground mb-3">How to Start a Return</h2>
+              <p>
+                Email us at{" "}
                 <a
-                  href="mailto:fireandsoapinc@gmail.com"
+                  href="mailto:fireandsoap@gmail.com"
                   className="text-foreground underline underline-offset-4 hover:text-accent transition-colors"
                 >
-                  fireandsoapinc@gmail.com
+                  fireandsoap@gmail.com
                 </a>{" "}
-                with your order number, a quick description, and a photo.
+                with your order number and reason for return. We&apos;ll send return instructions and, if applicable, a prepaid label.
               </p>
             </div>
+
+            <p className="pt-4 text-center text-foreground/80">
+              Fire &amp; Soap Inc. &nbsp;·&nbsp; 228 Park Ave S PMB 712217, New York, NY 10003
+            </p>
           </div>
         </section>
       ) : currentPage === "ingredients" ? (
@@ -1724,46 +1801,84 @@ export default function App() {
       ) : currentPage === "shipping" ? (
         <section className="px-5 md:px-14 py-28 md:py-36">
           <div className="text-center mb-12">
-            <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Help</p>
             <h1
               style={{ fontFamily: displayFont }}
               className="text-3xl md:text-4xl font-light text-foreground mb-2"
             >
-              Shipping
+              Shipping Policy
             </h1>
-            <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Fire &amp; Soap</p>
+            <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
+              Fire &amp; Soap Inc. — Sanctum Collection
+            </p>
           </div>
 
           <div className="space-y-8 text-sm leading-relaxed text-muted-foreground">
-            <p>
-              This page is a temporary placeholder while we finalize our full shipping policy. Thank you for your
-              patience as we put the finishing touches on our delivery details.
-            </p>
-
             <div>
-              <h2 className="text-base font-medium text-foreground mb-3">Processing Times</h2>
+              <h2 className="text-base font-medium text-foreground mb-3">Order Processing</h2>
+              <p className="mb-4">
+                All orders are handmade to order. Please allow 5–7 business days for processing before your order ships — our candles require proper cure time to ensure the best scent throw and burn quality. Processing times do not include weekends or holidays.
+              </p>
               <p>
-                Because our candles and soaps are made to order, please allow time for your piece to be handcrafted
-                before it ships. Processing details will be published here soon.
+                During high-volume periods (holidays, product launches, restocks), processing may take slightly longer. We&apos;ll notify you by email if there&apos;s a significant delay.
               </p>
             </div>
 
             <div>
-              <h2 className="text-base font-medium text-foreground mb-3">Shipping Rates</h2>
-              <p>Shipping is calculated at checkout based on your location and order size.</p>
+              <h2 className="text-base font-medium text-foreground mb-3">Shipping Rates &amp; Delivery</h2>
+              <p className="mb-4">
+                Shipping costs are calculated at checkout based on real-time carrier rates, determined by your location, package weight, and selected shipping speed.
+              </p>
+              <p className="mb-2 font-medium text-foreground">Domestic (U.S.):</p>
+              <p className="mb-1">Standard shipping: typically 3–7 business days after processing</p>
+              <p className="mb-4">Expedited options available at checkout, where offered</p>
+              <p className="mb-2 font-medium text-foreground">International:</p>
+              <p className="mb-1">Delivery times vary by destination, typically 7–21 business days after processing</p>
+              <p className="mb-4">
+                International orders may be subject to customs fees, import duties, and taxes assessed by the destination country. These charges are the responsibility of the recipient and are not included in your order total or shipping cost.
+              </p>
+              <p>We are not responsible for delays caused by customs processing.</p>
+            </div>
+
+            <div>
+              <h2 className="text-base font-medium text-foreground mb-3">Order Tracking</h2>
+              <p>
+                Once your order ships, you&apos;ll receive a confirmation email with tracking information. Please allow 24–48 hours for tracking to update after you receive this email.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-base font-medium text-foreground mb-3">Shipping Address</h2>
+              <p>
+                Please double-check your shipping address at checkout. Fire &amp; Soap Inc. is not responsible for orders shipped to an incorrectly entered address. If you notice an error, contact us as soon as possible — we cannot guarantee changes once an order has entered processing.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-base font-medium text-foreground mb-3">Lost, Damaged, or Delayed Packages</h2>
+              <p className="mb-4">
+                We package every order carefully to arrive safely, but we&apos;re not able to guarantee against loss or damage once a package is in the carrier&apos;s hands.
+              </p>
+              <p className="mb-2">
+                Damaged in transit: Contact us within 7 days of delivery with photos of the damaged item(s) and packaging, and we&apos;ll work with you on a replacement or resolution.
+              </p>
+              <p className="mb-2">
+                Lost packages: If tracking shows no movement for an extended period, contact us and we&apos;ll help file a claim with the carrier.
+              </p>
+              <p>
+                Delays: Carrier delays are outside our control, but reach out and we&apos;ll do what we can to help.
+              </p>
             </div>
 
             <div>
               <h2 className="text-base font-medium text-foreground mb-3">Questions</h2>
+              <p className="mb-4">
+                For any shipping questions, contact us at [insert support email], call us at (888) 526-6004, or write to us at:
+              </p>
+              <p className="mb-4">
+                Fire &amp; Soap Inc. 228 Park Ave S PMB 712217 New York, NY 10003 fireandsoap.com
+              </p>
               <p>
-                Email{" "}
-                <a
-                  href="mailto:fireandsoapinc@gmail.com"
-                  className="text-foreground underline underline-offset-4 hover:text-accent transition-colors"
-                >
-                  fireandsoapinc@gmail.com
-                </a>{" "}
-                and we&apos;ll be happy to help.
+                This policy applies to all orders placed through the Fire &amp; Soap Inc. website. We reserve the right to update this policy at any time; changes will be reflected on this page.
               </p>
             </div>
           </div>
@@ -2172,6 +2287,29 @@ export default function App() {
             </div>
           </div>
         </section>
+      ) : currentPage === "disclaimers" ? (
+        <section className="px-5 md:px-14 py-28 md:py-36">
+          <div className="text-center mb-12">
+            <p className="text-xs tracking-[0.3em] uppercase text-accent mb-4">Policy</p>
+            <h1
+              style={{ fontFamily: displayFont }}
+              className="text-3xl md:text-4xl font-light text-foreground mb-2"
+            >
+              Terms &amp; Disclaimers
+            </h1>
+            <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Fire &amp; Soap</p>
+          </div>
+
+          <div className="space-y-8 text-sm leading-relaxed text-muted-foreground">
+            <p>
+              The information, product names, and descriptions on this site (including any references to numerology,
+              symbolism, or intention-setting) are provided for entertainment and inspirational purposes only. Fire and
+              Soap makes no claims regarding healing, therapeutic, or medicinal properties of any product. Our candles
+              and soaps are not medicine and are not intended to diagnose, treat, cure, or prevent any illness. If you
+              have a medical or mental health concern, please consult a qualified healthcare professional.
+            </p>
+          </div>
+        </section>
       ) : currentPage === "ritual" ? (
         <Suspense
           fallback={
@@ -2417,7 +2555,7 @@ export default function App() {
                 heading: "Help",
                 links: [
                   { label: "Shipping", onClick: () => goToPage("shipping") },
-                  { label: "Return & Refund Policy", onClick: () => goToPage("returns") },
+                  { label: "Return & Exchange Policy", onClick: () => goToPage("returns") },
                   { label: "Contact", onClick: () => goToPage("contact") },
                 ],
               },
@@ -2487,13 +2625,22 @@ export default function App() {
                   1-(888) 526-6004
                 </a>
               </p>
-              <button
-                type="button"
-                onClick={() => goToPage("privacy")}
-                className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Privacy Policy
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+                <button
+                  type="button"
+                  onClick={() => goToPage("privacy")}
+                  className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Privacy Policy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToPage("disclaimers")}
+                  className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Terms &amp; Disclaimers
+                </button>
+              </div>
             </div>
           </div>
         </div>

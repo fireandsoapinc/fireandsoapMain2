@@ -2,3 +2,23 @@
 @source '../**/*.{js,ts,jsx,tsx}';
 
 @import 'tw-animate-css';
+
+@keyframes cart-bump {
+  0%,
+  100% {
+    transform: translateX(0) scale(1);
+  }
+  25% {
+    transform: translateX(-1.5px) scale(1.06);
+  }
+  50% {
+    transform: translateX(1.5px) scale(1.08);
+  }
+  75% {
+    transform: translateX(-1px) scale(1.04);
+  }
+}
+
+.cart-bump {
+  animation: cart-bump 0.4s ease-out;
+}

@@ -14,6 +14,8 @@ export type GalleryImage = {
   height: number;
   alt: string;
   createdAt: string | null;
+  /** Instagram handle from Cloudinary User metadata, without @. */
+  instagramUser: string | null;
 };
 
 const FOLDER_BY_TAB: Record<GalleryTab, string> = {
@@ -51,7 +53,7 @@ export function warmGalleryVideo(url: string | null | undefined) {
   }).catch(() => {});
 }
 
-export async function fetchGalleryImages(tab: GalleryTab = "our"): Promise<GalleryImage[]> {
+export async function fetchGalleryImages(tab: GalleryTab = "customers"): Promise<GalleryImage[]> {
   const folder = FOLDER_BY_TAB[tab];
   const response = await fetch(`/api/gallery?folder=${encodeURIComponent(folder)}`);
   if (!response.ok) {

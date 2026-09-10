@@ -1,5 +1,8 @@
 export type ShopifyProduct = {
   id: string;
+  /** Numeric Shopify product ID used by third-party integrations. */
+  shopifyProductId: string;
+  handle: string;
   variantId: string;
   name: string;
   category: string;
@@ -154,6 +157,7 @@ export async function fetchShopifyCollections(first = 50): Promise<ShopCategory[
         edges {
           node {
             id
+            handle
             title
             handle
           }
@@ -257,6 +261,8 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
 
     return {
       id: node.id,
+      shopifyProductId: String(node.id).split("/").pop() ?? "",
+      handle: node.handle ?? "",
       variantId: variant?.id ?? "",
       name: node.title,
       category: normalizeCategory(node.productType, node.tags),

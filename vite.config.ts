@@ -59,6 +59,51 @@ function galleryIntegration(env: Record<string, string>) {
   }
 }
 
+function createJudgeMeMiddleware(env: Record<string, string>): Connect.NextHandleFunction {
+  return async (req, res, next) => {
+    if (!req.url?.startsWith('/api/judgeme/reviews')) {
+      return next()
+    }
+
+    process.env.JUDGEME_PRIVATE = process.env.JUDGEME_PRIVATE || env.JUDGEME_PRIVATE
+    process.env.JUDGEME_SHOP_DOMAIN =
+      process.env.JUDGEME_SHOP_DOMAIN || env.JUDGEME_SHOP_DOMAIN
+
+    const url = new URL(req.url, 'http://localhost')
+    const query = Object.fromEntries(url.searchParams.entries())
+    const handler = (await import('./api/judgeme/reviews.js')).default
+
+    await handler(
+      { method: req.method, query },
+      {
+        setHeader(name: string, value: string) {
+          res.setHeader(name, value)
+        },
+        status(statusCode: number) {
+          res.statusCode = statusCode
+          return this
+        },
+        json(body: unknown) {
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(body))
+        },
+      },
+    )
+  }
+}
+
+function judgeMeIntegration(env: Record<string, string>) {
+  return {
+    name: 'judgeme-reviews-integration',
+    configureServer(server: { middlewares: Connect.Server }) {
+      server.middlewares.use(createJudgeMeMiddleware(env))
+    },
+    configurePreviewServer(server: { middlewares: Connect.Server }) {
+      server.middlewares.use(createJudgeMeMiddleware(env))
+    },
+  }
+}
+
 function figmaAssetResolver() {
   return {
     name: 'figma-asset-resolver',
@@ -77,6 +122,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       galleryIntegration(env),
+      judgeMeIntegration(env),
       figmaAssetResolver(),
       // The React and Tailwind plugins are both required for Make, even if
       // Tailwind is not being actively used – do not remove them

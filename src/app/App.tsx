@@ -651,8 +651,8 @@ export default function App() {
 
   const categoryLabels = shopCategories.map((category) => category.label);
   const footerShopLinks = shopCategories.filter((category) => category.slug);
-  const summerCollection =
-    shopCategories.find((category) => /summer/i.test(category.label)) ?? footerShopLinks[0] ?? null;
+  const fallCollection =
+    shopCategories.find((category) => /fall|autumn/i.test(category.label)) ?? footerShopLinks[0] ?? null;
 
   const filtered = products.filter((p) => {
     if (activeCategory === "All") return true;
@@ -1005,7 +1005,7 @@ export default function App() {
         <section className="relative h-[60vh] md:h-[88vh] overflow-hidden">
           <img
             src="/photos/newbeachdisplayy.png"
-            alt="A group of summer candles and soaps at the beach."
+            alt="A group of fall candles and soaps at the beach."
             className={`absolute inset-0 w-full h-full object-cover object-middle ${heroLoaded ? "opacity-100" : "opacity-0"}`}
           />
   
@@ -1025,11 +1025,11 @@ export default function App() {
       <button
         type="button"
         onClick={() =>
-          summerCollection ? goToShopCategory(summerCollection.label) : goToPage("shop")
+          fallCollection ? goToShopCategory(fallCollection.label) : goToPage("shop")
         }
         className="inline-flex items-center gap-3 text-xs tracking-[0.2em] uppercase text-foreground bg-black px-8 py-4 hover:bg-accent hover:text-accent-foreground transition-colors duration-300"
       >
-        {summerCollection ? `Explore the ${summerCollection.label}` : "Explore the Shop"}
+        {fallCollection ? `Explore the ${fallCollection.label}` : "Explore the Shop"}
         <ArrowRight size={12} />
       </button>
       

@@ -47,7 +47,7 @@ export const ALL_SHOP_CATEGORY: ShopCategory = { label: "All", slug: null };
 /** @deprecated Prefer fetchShopifyCollections(); kept for gradual migration. */
 export const SHOP_CATEGORIES: ShopCategory[] = [
   ALL_SHOP_CATEGORY,
-  { label: "Summer Collection", slug: "summer-collection" },
+  { label: "Fall Collection", slug: "fall-collection" },
   { label: "Candles", slug: "candles" },
   { label: "Soaps", slug: "soaps" },
 ];
@@ -153,11 +153,10 @@ async function shopifyGraphQL(query: string, variables: Record<string, unknown>)
 export async function fetchShopifyCollections(first = 50): Promise<ShopCategory[]> {
   const query = `
     query GetCollections($first: Int!) {
-      collections(first: $first, sortKey: ID, reverse: false) {
+      collections(first: $first, sortKey: ID, reverse: true) {
         edges {
           node {
             id
-            handle
             title
             handle
           }

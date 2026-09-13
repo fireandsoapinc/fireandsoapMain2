@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense, type FormEvent, type ReactNode, type RefObject } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ShoppingBag, Search, Menu, X, ArrowRight, ChevronLeft, ChevronRight, Play } from "lucide-react";
 import {
   fetchShopifyProducts,
@@ -749,11 +749,57 @@ export default function App() {
   const relatedProducts = selectedProduct
     ? products.filter((product) => product.id !== selectedProduct.id).slice(0, 4)
     : [];
+  const productSlides = useMemo(() => {
+    if (!selectedProduct) return [];
+    if (selectedProduct.media?.length) return selectedProduct.media;
+    return (selectedProduct.images ?? []).map((url) => ({
+      type: "image" as const,
+      url,
+      alt: selectedProduct.name,
+      previewUrl: null as string | null,
+    }));
+  }, [selectedProduct]);
+  const currentProductSlide = productSlides[selectedImageIndex] ?? productSlides[0] ?? null;
 
   useEffect(() => {
     setProductQuantity(1);
     setSelectedImageIndex(0);
   }, [selectedProductId]);
+
+  // Preload PDP gallery so Next/Prev switches without waiting on first paint.
+  useEffect(() => {
+    if (!selectedProductId || productSlides.length === 0) return;
+
+    const imageWarmers = productSlides
+      .filter((item) => item.type === "image")
+      .map((item) => {
+        const img = new Image();
+        img.decoding = "async";
+        img.src = item.url;
+        return img;
+      });
+
+    const videoWarmers = productSlides
+      .filter((item) => item.type === "video")
+      .map((item) => {
+        const video = document.createElement("video");
+        video.preload = "auto";
+        video.muted = true;
+        video.playsInline = true;
+        if (item.previewUrl) video.poster = item.previewUrl;
+        video.src = item.url;
+        video.load();
+        return video;
+      });
+
+    return () => {
+      imageWarmers.length = 0;
+      for (const video of videoWarmers) {
+        video.removeAttribute("src");
+        video.load();
+      }
+    };
+  }, [selectedProductId, productSlides]);
 
   function addToCart(product: Product, quantity = 1) {
     setCartItems((current) => {
@@ -1223,38 +1269,63 @@ export default function App() {
               </button>
 
               <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-10 lg:gap-16 items-start">
-                {/* Image slideshow */}
+                {/* Media slideshow */}
                 <div className="relative aspect-square bg-card overflow-hidden">
-                  <img
-                    src={selectedProduct.images[selectedImageIndex] ?? selectedProduct.image}
-                    alt={`${selectedProduct.name} photo ${selectedImageIndex + 1}`}
-                    className="h-full w-full object-cover"
-                  />
-                  {selectedProduct.images.length > 1 && (
+                  {currentProductSlide?.type === "video" ? (
+                    <video
+                      key={currentProductSlide.url}
+                      src={currentProductSlide.url}
+                      poster={currentProductSlide.previewUrl ?? undefined}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="auto"
+                      className="h-full w-full object-cover bg-black"
+                      aria-label={
+                        currentProductSlide.alt ||
+                        `${selectedProduct.name} video ${selectedImageIndex + 1}`
+                      }
+                    />
+                  ) : (
+                    <img
+                      src={currentProductSlide?.url ?? selectedProduct.image}
+                      alt={
+                        currentProductSlide?.alt ||
+                        `${selectedProduct.name} photo ${selectedImageIndex + 1}`
+                      }
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                  {productSlides.length > 1 && (
                     <>
                       <button
                         type="button"
-                        onClick={() => goToProductImage(selectedProduct.images.length, "prev")}
-                        aria-label="Previous product image"
+                        onClick={() => goToProductImage(productSlides.length, "prev")}
+                        aria-label="Previous product media"
                         className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center bg-background/80 border border-border text-foreground hover:bg-foreground hover:text-background transition-colors"
                       >
                         <ChevronLeft size={16} />
                       </button>
                       <button
                         type="button"
-                        onClick={() => goToProductImage(selectedProduct.images.length, "next")}
-                        aria-label="Next product image"
+                        onClick={() => goToProductImage(productSlides.length, "next")}
+                        aria-label="Next product media"
                         className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center bg-background/80 border border-border text-foreground hover:bg-foreground hover:text-background transition-colors"
                       >
                         <ChevronRight size={16} />
                       </button>
                       <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2">
-                        {selectedProduct.images.map((_, index) => (
+                        {productSlides.map((item, index) => (
                           <button
-                            key={index}
+                            key={`${item.type}-${item.url}-${index}`}
                             type="button"
                             onClick={() => setSelectedImageIndex(index)}
-                            aria-label={`View product image ${index + 1}`}
+                            aria-label={
+                              item.type === "video"
+                                ? `View product video ${index + 1}`
+                                : `View product image ${index + 1}`
+                            }
                             className={`h-1.5 rounded-full transition-all ${
                               selectedImageIndex === index ? "w-6 bg-foreground" : "w-1.5 bg-foreground/40 hover:bg-foreground/60"
                             }`}
@@ -2453,6 +2524,18 @@ export default function App() {
             </ScrollReveal>
           ))}
         </div>
+        <ScrollReveal className="mt-14 md:mt-16 flex justify-center" delay={280}>
+          <button
+            type="button"
+            onClick={() => {
+              setGalleryTab("customers");
+              goToPage("gallery");
+            }}
+            className="inline-flex items-center gap-2 text-xs tracking-[0.2em] uppercase text-foreground hover:text-accent transition-colors duration-300 border-b border-border pb-px"
+          >
+            View Customer Gallery <ArrowRight size={11} />
+          </button>
+        </ScrollReveal>
       </section>
 
       {/* ── NEWSLETTER ── */}

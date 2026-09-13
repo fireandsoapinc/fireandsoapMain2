@@ -1,3 +1,12 @@
+export type ShopifyProductMedia = {
+  type: "image" | "video";
+  /** Image URL, or progressive MP4 URL for videos. */
+  url: string;
+  alt: string;
+  /** Poster / preview frame for videos. */
+  previewUrl: string | null;
+};
+
 export type ShopifyProduct = {
   id: string;
   /** Numeric Shopify product ID used by third-party integrations. */
@@ -21,10 +30,36 @@ export type ShopifyProduct = {
   description: string;
   descriptionHtml: string;
   image: string;
+  /** Image URLs only (shop cards / hover). */
   images: string[];
+  /** Full media gallery in Shopify order (images + videos). */
+  media: ShopifyProductMedia[];
   tag: string;
   collections: string[];
 };
+
+type ShopifyVideoSource = {
+  url?: string | null;
+  mimeType?: string | null;
+  format?: string | null;
+  height?: number | null;
+  width?: number | null;
+};
+
+/** Prefer MP4 over HLS; pick ~720p when available for faster PDP playback. */
+function pickVideoUrl(sources: ShopifyVideoSource[]): string | null {
+  const mp4s = sources.filter(
+    (source) =>
+      Boolean(source.url) &&
+      (source.format === "mp4" || source.mimeType === "video/mp4" || source.url!.includes(".mp4")),
+  );
+  const pool = mp4s.length > 0 ? mp4s : sources.filter((source) => Boolean(source.url));
+  if (pool.length === 0) return null;
+
+  const sorted = [...pool].sort((a, b) => (b.height ?? 0) - (a.height ?? 0));
+  const mid = sorted.find((source) => (source.height ?? 0) <= 720 && (source.height ?? 0) >= 480);
+  return (mid ?? sorted[Math.min(1, sorted.length - 1)] ?? sorted[0]).url ?? null;
+}
 
 export function hasSalePrice(product: Pick<ShopifyProduct, "compareAtPrice">): boolean {
   return Boolean(product.compareAtPrice);
@@ -201,11 +236,28 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
                 }
               }
             }
-            images(first: 2) {
+            media(first: 250) {
               edges {
                 node {
-                  url
-                  altText
+                  mediaContentType
+                  alt
+                  ... on MediaImage {
+                    image {
+                      url
+                    }
+                  }
+                  ... on Video {
+                    previewImage {
+                      url
+                    }
+                    sources {
+                      url
+                      mimeType
+                      format
+                      height
+                      width
+                    }
+                  }
                 }
               }
             }
@@ -235,9 +287,11 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
 
   const json = await shopifyGraphQL(query, { first });
 
+  const fallbackImage =
+    "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&h=720&fit=crop&auto=format";
+
   return json.data.products.edges.map((edge: any) => {
     const node = edge.node;
-    const image = node.images.edges[0]?.node.url ?? "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&h=720&fit=crop&auto=format";
     const variant = node.variants.edges[0]?.node;
     const rawPrice = variant?.priceV2;
     const priceAmount = rawPrice ? Number(rawPrice.amount) : 0;
@@ -255,7 +309,36 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
     const size = variantTitle && variantTitle !== "Default Title" ? variantTitle : "Standard";
     const netWeight = formatNetWeight(variant?.weight, variant?.weightUnit);
 
-    const images = node.images.edges.map((imgEdge: any) => imgEdge.node.url).filter(Boolean);
+    const media: ShopifyProductMedia[] = (node.media?.edges ?? [])
+      .map((mediaEdge: any): ShopifyProductMedia | null => {
+        const mediaNode = mediaEdge?.node;
+        if (!mediaNode) return null;
+        const alt = typeof mediaNode.alt === "string" ? mediaNode.alt : "";
+        const contentType = mediaNode.mediaContentType;
+
+        if (contentType === "IMAGE") {
+          const url = mediaNode.image?.url;
+          if (!url) return null;
+          return { type: "image", url, alt, previewUrl: null };
+        }
+
+        if (contentType === "VIDEO") {
+          const url = pickVideoUrl(mediaNode.sources ?? []);
+          if (!url) return null;
+          return {
+            type: "video",
+            url,
+            alt,
+            previewUrl: mediaNode.previewImage?.url ?? null,
+          };
+        }
+
+        return null;
+      })
+      .filter(Boolean) as ShopifyProductMedia[];
+
+    const images = media.filter((item) => item.type === "image").map((item) => item.url);
+    const image = images[0] ?? media.find((item) => item.previewUrl)?.previewUrl ?? fallbackImage;
     const collections = node.collections?.edges?.map((edge: any) => edge.node.title as string).filter(Boolean) ?? [];
 
     return {
@@ -274,6 +357,7 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
       descriptionHtml: node.descriptionHtml ?? "",
       image,
       images: images.length > 0 ? images : [image],
+      media: media.length > 0 ? media : [{ type: "image", url: image, alt: node.title ?? "", previewUrl: null }],
       tag: normalizeTag(node.tags),
       collections,
     };

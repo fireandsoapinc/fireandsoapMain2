@@ -174,6 +174,48 @@ function isShopifyCheckoutSuccess() {
   return false;
 }
 
+function isShopifyCheckoutReferrer(referrer = document.referrer): boolean {
+  if (!referrer) return false;
+  try {
+    const host = new URL(referrer).hostname.toLowerCase();
+    return (
+      host === "checkout.shopify.com" ||
+      host.endsWith(".shopify.com") ||
+      host.endsWith(".myshopify.com") ||
+      host === "shop.app" ||
+      host.endsWith(".shop.app")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * After checkout we only get a homepage hit (Shopify ignores return_to).
+ * Clear only when this tab marked checkout pending AND either:
+ * - Shopify referrer (continue shopping / post-purchase redirect), or
+ * - pending is old enough that the shopper left our origin for real checkout
+ *   (avoids wiping the cart on an instant Back from the checkout redirect).
+ */
+function shouldClearCartAfterCheckoutReturn(): boolean {
+  if (isShopifyCheckoutSuccess()) return true;
+
+  const pendingRaw = window.sessionStorage.getItem(CHECKOUT_PENDING_KEY);
+  if (!pendingRaw) return false;
+
+  if (isShopifyCheckoutReferrer()) return true;
+
+  const startedAt = Number(pendingRaw);
+  if (!Number.isFinite(startedAt)) return true;
+
+  const MIN_CHECKOUT_AWAY_MS = 12_000;
+  return Date.now() - startedAt >= MIN_CHECKOUT_AWAY_MS;
+}
+
+function markCheckoutPending() {
+  window.sessionStorage.setItem(CHECKOUT_PENDING_KEY, String(Date.now()));
+}
+
 function clearStoredCart() {
   window.localStorage.removeItem(CART_STORAGE_KEY);
   window.sessionStorage.removeItem(CHECKOUT_PENDING_KEY);
@@ -378,6 +420,7 @@ export default function App() {
   const [productQuantity, setProductQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [cartBump, setCartBump] = useState(false);
+  const [cartHydrated, setCartHydrated] = useState(false);
   const instagramUsername = import.meta.env.VITE_INSTAGRAM_USERNAME || "fireandsoap";
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -385,7 +428,7 @@ export default function App() {
     setHeroLoaded(true);
 
     const storedCart = window.localStorage.getItem(CART_STORAGE_KEY);
-    if (isShopifyCheckoutSuccess()) {
+    if (shouldClearCartAfterCheckoutReturn()) {
       clearStoredCart();
       setCartItems([]);
     } else if (storedCart) {
@@ -395,6 +438,7 @@ export default function App() {
         clearStoredCart();
       }
     }
+    setCartHydrated(true);
 
     Promise.all([fetchShopifyProducts(50), fetchShopifyCollections()])
       .then(([items, collections]) => {
@@ -415,8 +459,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!cartHydrated) return;
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
-  }, [cartItems]);
+  }, [cartItems, cartHydrated]);
 
   const goToPage = (
     page:
@@ -485,12 +530,13 @@ export default function App() {
 
   useEffect(() => {
     const syncFromLocation = () => {
-      if (isShopifyCheckoutSuccess()) {
+      if (shouldClearCartAfterCheckoutReturn()) {
         clearStoredCart();
         setCartItems([]);
 
         const hash = window.location.hash.replace("#", "").split("?")[0].toLowerCase();
-        if (hash !== "thank-you" && hash !== "thankyou") {
+        // Shopify often returns to the homepage with no thank-you hash — show confirmation once.
+        if (!hash || hash === "home" || hash === "thank-you" || hash === "thankyou") {
           setSelectedProductId(null);
           setCurrentPage("thank-you");
           window.history.replaceState(null, "", "/#thank-you");
@@ -848,7 +894,7 @@ export default function App() {
       });
 
       const checkoutUrl = await createShopifyCheckoutUrl(lines);
-      window.sessionStorage.setItem(CHECKOUT_PENDING_KEY, "1");
+      markCheckoutPending();
 
       const returnUrl = getThankYouUrl();
       const separator = checkoutUrl.includes("?") ? "&" : "?";

@@ -6,19 +6,29 @@ export type AuraCardContent = ProductPair["aura"];
 
 const RITUAL_CODE = "MYAURA10";
 
-/** Candle chosen by zodiac sign group (the element selected in Step 1). */
-const CANDLE_BY_ELEMENT: Record<ElementId, string> = {
-  fire: "Sanctum Noir Candle",
-  water: "Sanctum Frosted Candle",
-  air: "Sanctum Marbleized Mini Candles",
-  earth: "Golden Sanctum",
+type RitualProductRef = {
+  /** Stable Shopify product handle — preferred match key. */
+  handle: string;
+  /** Display name shown on the aura card / tiles. */
+  name: string;
 };
 
-/** Soap chosen by sanctuary (selected in Step 3). Titles must match Shopify. */
-const SOAP_BY_SANCTUARY: Record<SanctuaryId, string> = {
-  "rain-cedar": "White Soap Rose Cosmetic Cleansing Bar Soap",
-  "ocean-waves": "Mini Seashell Cosmetic Cleansing Bar Soap",
-  "crackling-hearth": "Signature Butterfly Cosmetic Cleansing Bar Soap",
+/** Candle chosen by zodiac sign group (the element selected in Step 1). */
+const CANDLE_BY_ELEMENT: Record<ElementId, RitualProductRef> = {
+  fire: { handle: "sanctum-noir-candle", name: "Sanctum Noir Candle" },
+  water: { handle: "sanctum-frosted-candle", name: "Sanctum Frosted Candle" },
+  air: { handle: "sanctum-marbleized-mini-candles", name: "Sanctum Marbleized Mini Candles" },
+  earth: { handle: "golden-sanctum", name: "Golden Sanctum" },
+};
+
+/** Soap chosen by sanctuary (selected in Step 3). Handles must match Shopify. */
+const SOAP_BY_SANCTUARY: Record<SanctuaryId, RitualProductRef> = {
+  "rain-cedar": { handle: "white-soap-rose-xl", name: "White Soap Rose Cosmetic Cleansing Bar Soap" },
+  "ocean-waves": { handle: "mini-seashell-soaps", name: "Mini Seashell Cosmetic Cleansing Bar Soap" },
+  "crackling-hearth": {
+    handle: "signature-butterfly-soap",
+    name: "Signature Butterfly Cosmetic Cleansing Bar Soap",
+  },
 };
 
 type AuraCopy = { title: string; body: string };
@@ -91,36 +101,55 @@ const AURA_THEME_BY_SANCTUARY: Record<SanctuaryId, Omit<AuraCardContent, "title"
   },
 };
 
-function findProduct(catalog: ShopifyProduct[], name: string): ShopifyProduct | null {
-  const target = name.trim().toLowerCase();
+function normalizeProductTitle(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/cleaning/g, "cleansing")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findProduct(catalog: ShopifyProduct[], ref: RitualProductRef): ShopifyProduct | null {
+  const handle = ref.handle.trim().toLowerCase();
+  if (handle) {
+    const byHandle = catalog.find((p) => p.handle.trim().toLowerCase() === handle);
+    if (byHandle) return byHandle;
+  }
+
+  const target = normalizeProductTitle(ref.name);
   if (!target) return null;
 
-  const exact = catalog.find((p) => p.name.trim().toLowerCase() === target);
+  const exact = catalog.find((p) => normalizeProductTitle(p.name) === target);
   if (exact) return exact;
 
   const partial = catalog.find((p) => {
-    const title = p.name.trim().toLowerCase();
+    const title = normalizeProductTitle(p.name);
     return title.includes(target) || target.includes(title);
   });
   if (partial) return partial;
 
   // Token match: all meaningful words from the map name appear in the Shopify title.
-  // Survives renames like "Signature Butterfly Soap" → "...Cosmetic Cleansing Bar Soap".
   const tokens = target
-    .split(/[^a-z0-9]+/)
-    .filter((t) => t.length > 2 && !["the", "and", "for", "bar"].includes(t));
+    .split(" ")
+    .filter((t) => t.length > 2 && !["the", "and", "for", "bar", "soap", "candle", "candles"].includes(t));
   if (tokens.length === 0) return null;
 
   return (
     catalog.find((p) => {
-      const title = p.name.trim().toLowerCase();
+      const title = normalizeProductTitle(p.name);
       return tokens.every((token) => title.includes(token));
     }) ?? null
   );
 }
 
-function toMatchedProduct(name: string, catalog: ShopifyProduct[]): MatchedProduct {
-  return { name, product: findProduct(catalog, name) };
+function toMatchedProduct(ref: RitualProductRef, catalog: ShopifyProduct[]): MatchedProduct {
+  const product = findProduct(catalog, ref);
+  return {
+    name: product?.name ?? ref.name,
+    product,
+  };
 }
 
 export function resolveProductPair(

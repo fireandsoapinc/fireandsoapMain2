@@ -224,6 +224,7 @@ export async function fetchShopifyProducts(first = 12): Promise<ShopifyProduct[]
         edges {
           node {
             id
+            handle
             title
             description
             descriptionHtml

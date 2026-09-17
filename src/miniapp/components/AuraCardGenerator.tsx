@@ -39,6 +39,22 @@ const LOGO_SRC = "/photos/logo.PNG";
 const CARD_WIDTH = 360;
 const CARD_HEIGHT = 640;
 
+/** Same-origin and data URLs are fine as-is; CDN images need a CORS-friendly reload for canvas export. */
+function exportSafeImageSrc(src: string): string {
+  if (!src || src.startsWith("/") || src.startsWith("data:") || src.startsWith("blob:")) return src;
+  try {
+    const url = new URL(src);
+    url.searchParams.set("aura_export", "1");
+    return url.toString();
+  } catch {
+    return src;
+  }
+}
+
+function isRemoteImageSrc(src: string): boolean {
+  return /^https?:\/\//i.test(src);
+}
+
 function slugify(value: string): string {
   const slug = value
     .toLowerCase()
@@ -266,8 +282,10 @@ export function AuraCardGenerator({
               <div className="mt-5 grid grid-cols-2 gap-4">
                 <div className="flex flex-col items-center gap-2">
                   <img
-                    src={candleImage}
+                    src={exportSafeImageSrc(candleImage)}
                     alt={candleName}
+                    crossOrigin={isRemoteImageSrc(candleImage) ? "anonymous" : undefined}
+                    referrerPolicy="no-referrer"
                     className="h-24 w-24 object-contain drop-shadow-lg"
                   />
                   <p
@@ -279,8 +297,10 @@ export function AuraCardGenerator({
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <img
-                    src={soapImage}
+                    src={exportSafeImageSrc(soapImage)}
                     alt={soapName}
+                    crossOrigin={isRemoteImageSrc(soapImage) ? "anonymous" : undefined}
+                    referrerPolicy="no-referrer"
                     className="h-24 w-24 object-contain drop-shadow-lg"
                   />
                   <p

@@ -83,11 +83,20 @@ export default function MiniApp({ onExit, catalog, onViewProduct, onAddToCart }:
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // Always load a wider catalog for aura candle/soap name matching.
+    // Always load a wider catalog for aura candle/soap matching.
     // App homepage only fetches ~12 products, which often omits ritual soaps.
+    // Re-resolve an already-revealed pair once catalog arrives (handles race + stale session).
     void fetchShopifyProducts(50)
       .then((products) => {
-        if (products.length > 0) catalogRef.current = products;
+        if (products.length === 0) return;
+        catalogRef.current = products;
+        setDraft((d) => {
+          if (!d.revealed || !d.element || !d.sanctuary) return d;
+          return {
+            ...d,
+            productPair: resolveProductPair(d.element, d.sanctuary, d.hz, products),
+          };
+        });
       })
       .catch(() => {
         // Keep whatever parent seeded, if anything.

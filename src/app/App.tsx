@@ -2975,7 +2975,6 @@ function HomepageFeaturedCard({
         >
           <div className="overflow-hidden">
             <p className="text-sm leading-relaxed text-muted-foreground line-clamp-2 md:line-clamp-3 mb-3 md:mb-4">{description}</p>
-            <ProductPrice product={product} className="mb-4" />
             <button
               type="button"
               onClick={() => onAdd(product)}
@@ -2988,14 +2987,6 @@ function HomepageFeaturedCard({
               {isAdded ? "Added" : "Add to Cart"}
             </button>
           </div>
-        </div>
-
-        <div
-          className={`text-sm text-muted-foreground transition-opacity duration-500 ease-out ${
-            featured ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
-          }`}
-        >
-          <ProductPrice product={product} className="text-muted-foreground [&_span.font-medium]:text-foreground" />
         </div>
       </div>
     </article>
